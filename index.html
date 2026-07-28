@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de inversión — Fondos · Valores · Mercado</title>
+<link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Syne:wght@700;800&family=DM+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── TÍTULO ────────────────────────────────────────────────────────────────
+   Murisa Soraya no la sirve ningún CDN público, así que se busca en dos
+   sitios: primero en las fuentes instaladas del sistema, luego en la carpeta
+   "fuentes/" junto a este archivo. Si no está en ninguno, cae en Yeseva One,
+   que comparte el aire de serif decorativa de alto contraste. */
+@font-face {
+  font-family: 'Murisa Soraya';
+  src: local('Murisa Soraya'),
+       local('MurisaSoraya'),
+       url('fuentes/MurisaSoraya.woff2') format('woff2'),
+       url('fuentes/MurisaSoraya.otf')   format('opentype'),
+       url('fuentes/MurisaSoraya.ttf')   format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg:      #D8E7F7;   /* azul claro: el lienzo */
+  --surface: #F4F9FF;   /* blanco frío: tarjeta y cabecera */
+  --surf2:   #BDD6F0;   /* azul medio: thead y separadores */
+  --border:  #97BCE2;
+  --text:    #0E1E2E;   /* tinta azulada, casi negra */
+  --muted:   #325068;
+  --chip:    #0A1017;   /* soporte oscuro: sin él no hay neón */
+  --pos:     #00F58C;
+  --neg:     #FF2E4C;
+  --warn:    #B4530A;   /* ámbar: la única nota cálida, para avisos */
+  --sombra:  0 1px 2px rgba(14,30,46,.28);
+  --sombra2: 0 1px 2px rgba(14,30,46,.10), 0 10px 26px rgba(14,30,46,.08);
+
+  /* Color propio de cada clase de activo. Identifica la sección entera. */
+  --c-fondos:  #12509B;   /* cobalto  */
+  --c-valores: #0B7A6E;   /* verde azulado */
+  --c-mercado: #6D3FBF;   /* violeta  */
+
+  --cat: var(--c-fondos); /* el acento vivo: lo fija la pestaña activa */
+}
+/* La página entera adopta el color de la clase de activo seleccionada. */
+body[data-cat="fondos"]  { --cat: var(--c-fondos);  }
+body[data-cat="valores"] { --cat: var(--c-valores); }
+body[data-cat="mercado"] { --cat: var(--c-mercado); }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: auto;
+}
+
+/* ── CABECERA ─────────────────────────────────────────────────────────────── */
+.sticky-top { position: sticky; top: 0; z-index: 30; background: var(--bg); }
+.topbar {
+  position: relative;
+  background: linear-gradient(180deg, var(--surface) 0%, #EDF4FE 100%);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(14,30,46,.04);
+  padding: 16px 28px 14px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap;
+}
+.topbar::after {                       /* el filo de color que cambia con la pestaña */
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+  background: var(--cat); transition: background .35s ease;
+}
+h1 {
+  font-family: 'Murisa Soraya', 'Yeseva One', Georgia, serif;
+  font-size: 28px; font-weight: 400; letter-spacing: .01em; line-height: 1.1;
+}
+h1 em { color: var(--cat); font-style: normal; transition: color .35s ease; }
+.sub {
+  font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 4px;
+  letter-spacing: .02em;
+}
+.tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.stamp {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  color: var(--muted); white-space: nowrap;
+}
+.btn {
+  background: var(--cat); color: #fff; border: none;
+  padding: 9px 18px; border-radius: 8px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  box-shadow: var(--sombra);
+  transition: filter .2s, transform .1s, background .35s ease;
+}
+.btn:hover:not(:disabled) { filter: brightness(.88); }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn:disabled { background: var(--muted); cursor: not-allowed; }
+.btn.ghost {
+  background: var(--surface); color: var(--cat);
+  border: 1px solid var(--border); box-shadow: none;
+  padding: 7px 14px; font-size: 12.5px;
+}
+.btn.ghost:hover:not(:disabled) { background: #fff; border-color: var(--cat); filter: none; }
+.btn.ghost:disabled { background: var(--surf2); color: var(--muted); border-color: var(--border); }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.spin { display: inline-block; font-size: 15px; line-height: 1; }
+.spin.go { animation: giro 1s linear infinite; }
+@keyframes giro { to { transform: rotate(360deg); } }
+
+/* ── PESTAÑAS: LAS TRES CLASES DE ACTIVO ──────────────────────────────────── */
+.tabs {
+  position: relative;
+  display: flex; gap: 10px; padding: 14px 28px 0;
+  max-width: 1240px; margin: 0 auto; flex-wrap: wrap;
+}
+.tab {
+  flex: 1 1 220px; text-align: left; cursor: pointer;
+  background: rgba(244,249,255,.72); border: 1px solid var(--border);
+  border-bottom: 3px solid transparent;
+  border-radius: 10px 10px 0 0; padding: 11px 15px 10px;
+  font-family: 'DM Sans', sans-serif; color: var(--muted);
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  gap: 4px 10px; transition: background .18s, color .18s, border-color .18s;
+}
+.tab:hover { background: #fff; color: var(--text); }
+.tab .dot {
+  width: 10px; height: 10px; border-radius: 3px; grid-row: 1;
+  background: var(--tc); box-shadow: 0 0 0 3px rgba(255,255,255,.6);
+}
+.tab-t { font-size: 14px; font-weight: 700; letter-spacing: -.01em; grid-row: 1; }
+.tab-t .corta { display: none; }
+.tab-n {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700;
+  grid-row: 1; color: var(--muted); background: rgba(14,30,46,.06);
+  padding: 2px 7px; border-radius: 5px;
+}
+.tab-s {
+  grid-column: 2 / -1; grid-row: 2; font-size: 11px; font-weight: 600;
+  color: var(--muted); letter-spacing: .01em;
+}
+.tab[data-cat="fondos"]  { --tc: var(--c-fondos);  }
+.tab[data-cat="valores"] { --tc: var(--c-valores); }
+.tab[data-cat="mercado"] { --tc: var(--c-mercado); }
+.tab[aria-selected="true"] {
+  background: var(--surface); color: var(--text);
+  border-color: var(--border); border-bottom-color: var(--tc);
+  box-shadow: 0 -2px 10px rgba(14,30,46,.05);
+}
+.tab[aria-selected="true"] .tab-t { color: var(--tc); }
+.tab[aria-selected="true"] .tab-n { background: var(--tc); color: #fff; }
+
+/* ── CONTENIDO ────────────────────────────────────────────────────────────── */
+main { padding: 0 28px 40px; max-width: 1240px; margin: 0 auto; scroll-margin-top: 140px; }
+.sec { animation: entra .28s ease; }
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.sec-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; padding: 22px 2px 14px;
+}
+.eyebrow {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px;
+  letter-spacing: .11em; text-transform: uppercase; color: var(--cat);
+  display: flex; align-items: center; gap: 10px;
+}
+.eyebrow::before {
+  content: ""; width: 22px; height: 3px; border-radius: 2px; background: var(--cat);
+}
+.sec-desc { font-size: 12.5px; font-weight: 500; color: var(--muted); margin-top: 5px; max-width: 62ch; line-height: 1.5; }
+.sec-tools { display: flex; align-items: center; gap: 12px; }
+.progress {
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  font-weight: 600; color: var(--muted); white-space: nowrap;
+}
+
+/* ── TARJETAS DE RESUMEN ──────────────────────────────────────────────────── */
+.kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px; margin-bottom: 18px;
+}
+.kpi {
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 11px; padding: 14px 16px 13px; overflow: hidden;
+  box-shadow: var(--sombra2);
+}
+.kpi::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--cat);
+}
+.kpi-lbl {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.kpi-val {
+  font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700;
+  letter-spacing: -.02em; line-height: 1.15; margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-val.sm { font-size: 19px; }
+.kpi-val .pill { font-size: 15px; padding: 5px 12px; }
+.kpi-sub { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+.kpi-val.pos, .kpi-sub.pos { color: #067A4A; }
+.kpi-val.neg, .kpi-sub.neg { color: #C31933; }
+
+/* ── TABLA ────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--cat);
+  border-radius: 10px; overflow: hidden; overflow-x: auto;
+  box-shadow: var(--sombra2);
+}
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+thead { background: var(--surf2); }
+th {
+  padding: 12px 16px; text-align: left; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+th.r { text-align: right; }
+td {
+  padding: 13px 16px; border-bottom: 1px solid var(--border); color: var(--text);
+  font-weight: 500; vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+.clickable:hover td { background: rgba(18,80,155,.08); cursor: pointer; }
+
+/* ── CELDAS ───────────────────────────────────────────────────────────────── */
+.c-name { font-weight: 700; color: var(--text); max-width: 300px; line-height: 1.35; }
+.c-name .nm { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 0; }
+.c-name small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.c-name .tag {
+  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  font-weight: 700; color: var(--cat); background: rgba(14,30,46,.05);
+  padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 1px;
+}
+.c-isin  { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.c-fecha { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.c-nav   { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.c-num   { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.c-pct   { text-align: right; white-space: nowrap; }
+.pos { color: #067A4A; }
+.neg { color: #C31933; }
+.flat { color: var(--muted); }
+
+/* La píldora de neón: el mismo lenguaje para toda variación, en las 3 secciones */
+.pill {
+  display: inline-block; font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px; font-weight: 700; padding: 4px 11px; border-radius: 6px;
+  background: var(--chip); box-shadow: var(--sombra); white-space: nowrap;
+}
+.pill.pos {
+  color: var(--pos); text-shadow: 0 0 10px rgba(0,245,140,.85);
+  box-shadow: 0 0 0 1px rgba(0,245,140,.45), 0 0 14px rgba(0,245,140,.38), var(--sombra);
+}
+.pill.neg {
+  color: var(--neg); text-shadow: 0 0 10px rgba(255,46,76,.85);
+  box-shadow: 0 0 0 1px rgba(255,46,76,.45), 0 0 14px rgba(255,46,76,.38), var(--sombra);
+}
+.pill.neu { color: #B3C4D4; box-shadow: 0 0 0 1px rgba(179,196,212,.25), var(--sombra); }
+.pill .cuant { font-size: 11px; opacity: .8; margin-left: 5px; }
+
+.badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px; background: #fff; color: var(--muted);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.badge.cat { background: var(--cat); color: #fff; border-color: transparent; }
+
+/* Punto de frescura del dato (cartera) */
+.dot-live { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; flex: none; }
+.dot-live.live  { background: #17A673; }
+.dot-live.stale { background: #E9A23B; }
+.dot-live.err   { background: var(--neg); }
+
+/* ── SEPARADOR DE CATEGORÍA ───────────────────────────────────────────────── */
+.row-sep td {
+  background: var(--surf2); color: var(--cat);
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px;
+  letter-spacing: .09em; text-transform: uppercase; padding: 9px 16px;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.row-sep:hover td { background: var(--surf2); cursor: default; }
+
+/* ── ESTADOS ──────────────────────────────────────────────────────────────── */
+@keyframes shimmer { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+.sh { animation: shimmer 1.5s ease-in-out infinite; color: var(--muted); }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
+.row-ok td { animation: fadeSlide .3s ease forwards; }
+.row-err .c-err { font-size: 11.5px; font-weight: 600; color: var(--warn); }
+.row-block { opacity: .55; }
+
+/* ── NOTAS ────────────────────────────────────────────────────────────────── */
+.notes {
+  margin-top: 14px; font-size: 12.5px; font-weight: 500; color: var(--muted);
+  display: flex; flex-direction: column; gap: 5px; padding: 0 2px; line-height: 1.5;
+}
+.notes b { color: var(--text); font-weight: 700; }
+.notes code {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  background: rgba(14,30,46,.06); padding: 1px 5px; border-radius: 4px;
+}
+
+/* ── HORARIO EXTENDIDO (mercado principal) ────────────────────────────────── */
+.ext { display: flex; gap: 14px; align-items: center; justify-content: flex-end; white-space: nowrap; }
+.ext-item { display: inline-flex; align-items: center; gap: 6px; }
+.ext-ico { font-size: 13px; line-height: 1; filter: grayscale(.15); }
+.ext-val {
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.ext-val.pos { color: #067A4A; }
+.ext-val.neg { color: #C31933; }
+.ext-val.na  { color: var(--muted); opacity: .45; }
+.ext-pct { font-size: 11px; opacity: .85; }
+
+/* ── NOTICIAS ─────────────────────────────────────────────────────────────── */
+.news-btn {
+  background: #fff; color: var(--cat); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 11px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.news-btn:hover { background: var(--surf2); border-color: var(--cat); }
+.news-btn.open { background: var(--cat); color: #fff; border-color: transparent; }
+.news-btn .chev { display: inline-block; transition: transform .2s; font-size: 10px; }
+.news-btn.open .chev { transform: rotate(180deg); }
+
+.row-news td { padding: 0; border-bottom: 1px solid var(--border); background: rgba(189,214,240,.35); }
+.news { padding: 6px 16px 14px; }
+.news article {
+  padding: 13px 0; border-bottom: 1px solid var(--border);
+}
+.news article:last-child { border-bottom: none; }
+.news h3 { font-size: 14.5px; font-weight: 700; line-height: 1.4; margin-bottom: 5px; }
+.news h3 a { color: var(--cat); text-decoration: none; }
+.news h3 a:hover { text-decoration: underline; }
+.news p { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 7px; font-weight: 500; }
+.news small {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.news-src {
+  font-family: 'DM Sans', sans-serif; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  background: #fff; color: var(--cat); border: 1px solid var(--border);
+  padding: 2px 7px; border-radius: 5px;
+}
+.news .estado {
+  padding: 22px 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted);
+}
+.news .estado.err { color: var(--warn); }
+
+/* Panel de noticias generales, al pie del mercado principal */
+.panel-gen {
+  margin-top: 18px; background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--cat); border-radius: 10px; overflow: hidden;
+  box-shadow: var(--sombra2);
+}
+.panel-gen-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 13px 16px; background: var(--surf2); border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.panel-gen-t {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 12.5px;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--cat);
+}
+.panel-gen .news { padding: 4px 16px 12px; }
+
+/* ── MÓVIL: TABLA → TARJETAS ──────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .topbar { padding: 14px; }
+  .tabs { padding: 12px 14px 0; gap: 6px; }
+  .tab { flex: 1 1 0; min-width: 0; padding: 9px 10px; gap: 8px; }
+  .tab-s, .tab-n, .tab-t .larga { display: none; }
+  .tab-t .corta { display: inline; }
+  .tab-t { font-size: 13px; }
+  main { padding: 0 14px 30px; }
+  h1 { font-size: 24px; }
+  .kpi-val { font-size: 22px; }
+
+  .card { overflow-x: visible; border: none; border-left: none; background: transparent; box-shadow: none; }
+  thead { display: none; }
+  table, tbody { display: block; width: 100%; }
+
+  tr.clickable, tr.row-ok, tr.row-err, tr.row-block, tr.row-data {
+    display: block; background: var(--surface);
+    border: 1px solid var(--border); border-left: 4px solid var(--cat);
+    border-radius: 11px; margin-bottom: 12px; overflow: hidden;
+    box-shadow: var(--sombra2);
+  }
+  tr:last-child td { border-bottom: 1px solid var(--border); }
+
+  td {
+    display: flex; justify-content: space-between; align-items: center; gap: 14px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: right;
+  }
+  td:last-child { border-bottom: none; }
+  td::before {
+    content: attr(data-label); flex: 0 0 auto; font-size: 10px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--muted); text-align: left;
+  }
+  td.c-name {
+    flex-direction: column; align-items: flex-start; gap: 3px; text-align: left;
+    background: var(--surf2); max-width: none; font-size: 15px;
+  }
+  td.c-name::before { content: none; }
+  td.c-name small { margin-top: 0; }
+  .c-nav, .c-pct, .c-num { text-align: right; }
+  .ext { justify-content: flex-end; }
+
+  tr.row-sep { display: block; margin: 4px 0 12px; }
+  .row-sep td { display: block; text-align: center; border-radius: 9px; border: 1px solid var(--border); }
+  .row-sep td::before { content: none; }
+
+  tr.row-news { display: block; margin: -8px 0 12px; }
+  .row-news td { display: block; padding: 0; border-radius: 0 0 11px 11px; }
+  .row-news td::before { content: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin.go { animation: none; }
+  .sh { animation: none; opacity: .6; }
+  .row-ok td, .sec { animation: none; }
+}
+</style>
+</head>
+<body data-cat="fondos">
+
+<div class="sticky-top">
+<header class="topbar">
+  <div>
+    <h1>Panel de <em>inversión</em></h1>
+    <p class="sub">Fondos · Valores, ETF y ETN en cartera · Mercado principal</p>
+  </div>
+  <div class="tools">
+    <span class="stamp" id="stamp">Abriendo…</span>
+    <button class="btn" id="btn-all"><span class="spin" id="ico-all">⟳</span> Actualizar todo</button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Clases de activo">
+  <button class="tab" id="tab-fondos" data-cat="fondos" role="tab" aria-selected="true" aria-controls="sec-fondos">
+    <span class="dot"></span>
+    <span class="tab-t"><span class="larga">Fondos de inversión</span><span class="corta">Fondos</span></span>
+    <span class="tab-n" id="n-fondos">—</span>
+    <span class="tab-s">Valor liquidativo · EUR</span>
+  </button>
+  <button class="tab" id="tab-valores" data-cat="valores" role="tab" aria-selected="false" aria-controls="sec-valores" tabindex="-1">
+    <span class="dot"></span>
+    <span class="tab-t"><span class="larga">Valores · ETF · ETN</span><span class="corta">Cartera</span></span>
+    <span class="tab-n" id="n-valores">—</span>
+    <span class="tab-s">Tu cartera · Xetra / Frankfurt · EUR</span>
+  </button>
+  <button class="tab" id="tab-mercado" data-cat="mercado" role="tab" aria-selected="false" aria-controls="sec-mercado" tabindex="-1">
+    <span class="dot"></span>
+    <span class="tab-t"><span class="larga">Mercado principal</span><span class="corta">Mercado</span></span>
+    <span class="tab-n" id="n-mercado">—</span>
+    <span class="tab-s">Cotización de origen · USD · en directo</span>
+  </button>
+</nav>
+</div>
+
+<main>
+
+  <!-- ══ 1. FONDOS DE INVERSIÓN ══════════════════════════════════════════ -->
+  <section class="sec" id="sec-fondos" role="tabpanel" aria-labelledby="tab-fondos">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Fondos de inversión</div>
+        <p class="sec-desc">Valor liquidativo del último día publicado. Cada fila abre la ficha original de su fuente.</p>
+      </div>
+      <div class="sec-tools">
+        <span class="progress" id="prog-fondos"></span>
+        <button class="btn ghost" id="btn-fondos"><span class="spin" id="ico-fondos">⟳</span> Actualizar fondos</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-lbl">Fondos leídos</div><div class="kpi-val" id="k-f-leidos">—</div><div class="kpi-sub" id="k-f-leidos-s">esperando datos</div></div>
+      <div class="kpi"><div class="kpi-lbl">Al alza</div><div class="kpi-val pos" id="k-f-alza">—</div><div class="kpi-sub">en la última sesión</div></div>
+      <div class="kpi"><div class="kpi-lbl">A la baja</div><div class="kpi-val neg" id="k-f-baja">—</div><div class="kpi-sub">en la última sesión</div></div>
+      <div class="kpi"><div class="kpi-lbl">Variación media</div><div class="kpi-val" id="k-f-media">—</div><div class="kpi-sub">media simple, sin ponderar</div></div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Fondo</th><th>ISIN</th><th>Fecha VL</th>
+            <th class="r">Valor liquidativo</th><th class="r">Var. %</th><th>Fuente</th>
+          </tr>
+        </thead>
+        <tbody id="tb-fondos"></tbody>
+      </table>
+    </div>
+    <div class="notes" id="notas-fondos"></div>
+  </section>
+
+  <!-- ══ 2. VALORES / ETF / ETN EN CARTERA ═══════════════════════════════ -->
+  <section class="sec" id="sec-valores" role="tabpanel" aria-labelledby="tab-valores" hidden>
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Valores · ETF · ETN <span class="badge cat">EUR</span></div>
+        <p class="sec-desc">Las mismas posiciones que liquida IBKR, con su precio medio y su base de coste. Solo activos: no entra el efectivo ni los dividendos.</p>
+      </div>
+      <div class="sec-tools">
+        <span class="progress" id="prog-valores"></span>
+        <button class="btn ghost" id="btn-valores"><span class="spin" id="ico-valores">⟳</span> Actualizar cartera</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-lbl">Valor de mercado</div><div class="kpi-val" id="k-v-valor">—</div><div class="kpi-sub" id="k-v-n">solo posiciones, sin efectivo</div></div>
+      <div class="kpi"><div class="kpi-lbl">Base de coste</div><div class="kpi-val" id="k-v-coste">—</div><div class="kpi-sub">comisiones de compra incluidas</div></div>
+      <div class="kpi"><div class="kpi-lbl">PyG diarias</div><div class="kpi-val sm" id="k-v-hoy">—</div><div class="kpi-sub" id="k-v-hoy-pct">variación de la sesión</div></div>
+      <div class="kpi"><div class="kpi-lbl">PyG no realizadas</div><div class="kpi-val sm" id="k-v-pg">—</div><div class="kpi-sub" id="k-v-pg-pct"></div></div>
+    </div>
+
+    <div class="card" id="card-valores">
+      <table>
+        <thead>
+          <tr>
+            <th>Instrumento</th><th class="r">Posición</th><th class="r">Último</th>
+            <th class="r">% Variación</th><th class="r">Precio medio</th><th class="r">Base de coste</th>
+            <th class="r">Valor de mercado</th><th class="r">PyG diarias</th><th class="r">PyG no realizadas</th>
+          </tr>
+        </thead>
+        <tbody id="tb-valores"></tbody>
+        <tfoot>
+          <tr>
+            <td class="l" colspan="5" data-label="">Total de la cartera</td>
+            <td class="c-num" id="f-v-coste" data-label="Base de coste">—</td>
+            <td class="c-num" id="f-v-valor" data-label="Valor de mercado">—</td>
+            <td class="c-num" id="f-v-hoy"   data-label="PyG diarias">—</td>
+            <td class="c-num" id="f-v-pg"    data-label="PyG no realizadas">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="notes" id="notas-valores"></div>
+  </section>
+
+  <!-- ══ 3. MERCADO PRINCIPAL ════════════════════════════════════════════ -->
+  <section class="sec" id="sec-mercado" role="tabpanel" aria-labelledby="tab-mercado" hidden>
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Mercado principal <span class="badge cat">USD</span></div>
+        <p class="sec-desc">Los mismos activos en su plaza de origen, en directo. Aquí se ve la referencia real: en Xetra cotiza el reflejo.</p>
+      </div>
+      <div class="sec-tools">
+        <span class="progress" id="prog-mercado"></span>
+        <button class="btn ghost" id="btn-mercado"><span class="spin" id="ico-mercado">⟳</span> Actualizar mercado</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-lbl">Al alza</div><div class="kpi-val" id="k-m-alza">—</div><div class="kpi-sub">sobre el cierre anterior</div></div>
+      <div class="kpi"><div class="kpi-lbl">Variación media</div><div class="kpi-val" id="k-m-media">—</div><div class="kpi-sub">media simple del panel</div></div>
+      <div class="kpi"><div class="kpi-lbl">Mejor del día</div><div class="kpi-val sm" id="k-m-mejor">—</div><div class="kpi-sub" id="k-m-mejor-s">—</div></div>
+      <div class="kpi"><div class="kpi-lbl">Sesión en Nueva York</div><div class="kpi-val sm" id="k-m-fase">—</div><div class="kpi-sub" id="k-m-fase-s">hora de Nueva York</div></div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Activo</th><th class="r">Precio</th><th class="r">Hoy</th>
+            <th class="r">Fuera de sesión</th><th class="r">Noticias</th>
+          </tr>
+        </thead>
+        <tbody id="tb-mercado"></tbody>
+      </table>
+    </div>
+
+    <div class="panel-gen">
+      <div class="panel-gen-head">
+        <span class="panel-gen-t">Noticias de mercados</span>
+        <button class="news-btn" id="btn-gen"><span class="chev">▾</span> Ver titulares internacionales</button>
+      </div>
+      <div class="news" id="news-gen" hidden></div>
+    </div>
+
+    <div class="notes" id="notas-mercado"></div>
+  </section>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   PANEL DE INVERSIÓN — un único archivo, tres clases de activo.
+     1. Fondos de inversión   → lectura del VL en FT / Fundsquare / AVL / Investing
+     2. Valores · ETF · ETN   → tu cartera IBKR al precio de Xetra/Frankfurt (Yahoo)
+     3. Mercado principal     → los mismos activos en su plaza de origen (Finnhub, en
+                                directo por WebSocket) + Solana + noticias
+   Cada bloque conserva su proxy propio; solo se comparte la interfaz.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── CONFIGURACIÓN ─────────────────────────────────────────────────────────── */
+const PROXY_FONDOS = "https://monitor-fondos.esperance.workers.dev/?url=";
+const PROXY_YAHOO  = "https://cartera-yahoo.esperance.workers.dev/?url=";
+const PROXY_NEWS   = "https://cartera-noticias.esperance.workers.dev/?url=";
+const FINNHUB_KEY  = "d2s66m1r01qiq7a2qqhgd2s66m1r01qiq7a2qqi0";
+
+const REFRESCO_CARTERA_MIN = 10;   // refresco automático de la cartera
+const STALE_MIN            = 20;   // a partir de aquí el punto pasa a ámbar
+const CACHE_KEY            = "panel_inversion_cache_v2";
+
+/* ── 1. FONDOS ─────────────────────────────────────────────────────────────── */
+const FONDOS = [
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=ES0146309002:EUR" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=ES0119199000:EUR" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=ES0112611001:EUR" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=IE00BH6XSF26:EUR" },
+  { url: "https://www.avl-investmentfonds.de/fonds/details/IE00BLF9YH30" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=LU0210534227:EUR" },
+  { url: "https://www.avl-investmentfonds.de/fonds/details/LU2338974699" },
+  { url: "https://www.avl-investmentfonds.de/fonds/details/IE00BK5TW727" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=IE0031574647:EUR" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=LU0147943442:EUR" },
+  { url: "https://www.fundsquare.net/security/summary?idInstr=322835" },
+  { url: "https://www.fundsquare.net/security/summary?idInstr=5948" },
+  { url: "https://www.fundsquare.net/security/price?idInstr=117231" },
+  { url: "https://www.avl-investmentfonds.de/fonds/details/LU0757431738" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=IE00BGHQF524:EUR" },
+  { url: "https://markets.ft.com/data/funds/tearsheet/summary?s=IE00BDR0JY05:EUR" },
+  { url: "https://es.investing.com/funds/azvalor-global-value-pp" },
+
+  { separador: true, titulo: "De interés" },
+  { url: "https://www.fundsquare.net/security/summary?idInstr=268050" },
+  { url: "https://www.fundsquare.net/security/summary?idInstr=233106" },
+];
+
+/* ── 2. CARTERA (valores, ETF y ETN) ───────────────────────────────────────
+   Cifras tomadas del extracto de IBKR (Posiciones + Transaction History):
+     · "coste" es la BASE DE COSTE total que da IBKR, con la comisión de compra
+       ya dentro. El precio medio se deriva de ella, así el total cuadra al
+       céntimo con el broker en vez de arrastrar redondeos.
+     · MHL y VL9 reparten la base original de S&P Global tras la escisión de
+       Mobility Global del 01/07/2026: 864,02 + 45,68 = 909,70 € (2 × 453,35
+       + 3,00 de comisión).
+     · "yahoo" es la línea que cotiza IBKR; "alt" es el respaldo si esa falla.
+   Orden: el mismo de IBKR (PyG no realizadas, de mayor a menor).             */
+const POSICIONES = [
+  { ibkr:'PKA',  yahoo:'PKA.DE',  alt:'PKA.F',   name:'Packaging Corp of America',  isin:'US6951561090', venue:'Xetra',     tipo:'Acción', qty:6,  coste:1010.10 },
+  { ibkr:'DCO',  yahoo:'DCO.DE',  alt:'DCO.F',   name:'Deere & Co',                 isin:'US2441991054', venue:'Xetra',     tipo:'Acción', qty:2,  coste:893.80  },
+  { ibkr:'WMT',  yahoo:'WMT.DE',  alt:'WMT.F',   name:'Walmart Inc',                isin:'US9311421039', venue:'Xetra',     tipo:'Acción', qty:10, coste:810.40  },
+  { ibkr:'BRYN', yahoo:'BRYN.DE', alt:'BRYN.F',  name:'Berkshire Hathaway Inc CL B',isin:'US0846707026', venue:'Xetra',     tipo:'Acción', qty:2,  coste:823.00  },
+  { ibkr:'UNP',  yahoo:'UNP.DE',  alt:'UNP.F',   name:'Union Pacific Corp',         isin:'US9078181081', venue:'Xetra',     tipo:'Acción', qty:4,  coste:1002.60 },
+  { ibkr:'MWOW', yahoo:'MWOW.DE', alt:'MWOW.F',  name:'Amundi Rusl 1000 G UCITS ETF',isin:'IE0005E8B9S4',venue:'Xetra',     tipo:'ETF',    qty:2,  coste:1003.60 },
+  { ibkr:'UU2',  yahoo:'UU2.DE',  alt:'UU2.F',   name:'BlackRock Inc',              isin:'US09290D1019', venue:'Xetra',     tipo:'Acción', qty:1,  coste:911.60  },
+  { ibkr:'VL9',  yahoo:'VL9.F',   alt:'VL9.DE',  name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.68   },
+  { ibkr:'MHL',  yahoo:'MHL.F',   alt:'MHL.DE',  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.02  },
+  { ibkr:'E6Z',  yahoo:'E6Z.DE',  alt:'E6Z.F',   name:'AECOM',                      isin:'US00766T1007', venue:'Xetra',     tipo:'Acción', qty:13, coste:1069.00 },
+  { ibkr:'DSOL', yahoo:'DSOL.DE', alt:'SOLW.PA', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
+];
+
+/* ── 3. MERCADO PRINCIPAL ──────────────────────────────────────────────────
+   Panel de seguimiento, no cartera: aquí no hay cantidades ni coste (eso vive
+   en la pestaña anterior). "equiv" enlaza cada valor con tu posición europea. */
+const MERCADO = [
+  { symbol:'BRK-B', name:'Berkshire Hathaway B',      tipo:'stock',  equiv:'BRYN.DE' },
+  { symbol:'DE',    name:'Deere & Company',           tipo:'stock',  equiv:'DCO.DE'  },
+  { symbol:'ACM',   name:'AECOM',                     tipo:'stock',  equiv:'E6Z.DE'  },
+  { symbol:'SPGI',  name:'S&P Global',                tipo:'stock',  equiv:'MHL.F'   },
+  { symbol:'MBGL',  name:'Mobility Global',           tipo:'stock',  equiv:'VL9.F', nota:'Escisión de S&P Global (1:1, 01/07/2026)' },
+  { symbol:'PKG',   name:'Packaging Corp of America', tipo:'stock',  equiv:'PKA.DE'  },
+  { symbol:'BLK',   name:'BlackRock',                 tipo:'stock',  equiv:'UU2.DE'  },
+  { symbol:'WMT',   name:'Walmart',                   tipo:'stock',  equiv:'WMT.DE'  },
+  { symbol:'IWF',   name:'iShares Russell 1000 Growth', tipo:'stock', equiv:'MWOW.DE', nota:'ETF que replica el índice RLG' },
+  { symbol:'UNP',   name:'Union Pacific',             tipo:'stock',  equiv:'UNP.DE', nota:'Fusión con Norfolk Southern en revisión de la STB' },
+  { symbol:'solana', name:'Solana',                   tipo:'crypto', market:'usd', equiv:'DSOL.DE', nota:'Subyacente de tu ETN DSOL' },
+];
+
+/* ── UTILIDADES COMPARTIDAS ────────────────────────────────────────────────── */
+const $  = id => document.getElementById(id);
+const esc = s => (s == null ? "" : String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* Los ticks del WebSocket llegan a ráfagas; esto evita repintar de más. */
+function throttle(fn, ms) {
+  let ultimo = 0, pend = null;
+  return () => {
+    const ahora = Date.now();
+    if (ahora - ultimo >= ms) { ultimo = ahora; fn(); }
+    else if (!pend) pend = setTimeout(() => { pend = null; ultimo = Date.now(); fn(); }, ms - (ahora - ultimo));
+  };
+}
+
+const eur  = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR' });
+// El mercado de origen es estadounidense: se lee mejor en su propia convención.
+const usd  = { format: n => '$' + n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) };
+const num2 = new Intl.NumberFormat('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const eurFirmado = n => (n >= 0 ? '+' : '−') + eur.format(Math.abs(n));
+const pctFirmado = n => (n >= 0 ? '+' : '−') + num2.format(Math.abs(n)) + ' %';
+const claseDe    = n => n > 0 ? 'pos' : (n < 0 ? 'neg' : 'flat');
+
+/* Píldora de variación: el mismo lenguaje visual en las tres secciones. */
+function pill(pctNum, cuantia) {
+  if (pctNum == null || isNaN(pctNum)) return '<span class="pill neu">—</span>';
+  const cls = pctNum > 0 ? 'pos' : (pctNum < 0 ? 'neg' : 'neu');
+  const txt = (pctNum > 0 ? '+' : pctNum < 0 ? '−' : '') + num2.format(Math.abs(pctNum)) + ' %';
+  const extra = cuantia ? `<span class="cuant">${esc(cuantia)}</span>` : '';
+  return `<span class="pill ${cls}">${txt}${extra}</span>`;
+}
+
+/* Almacén con red de seguridad: si localStorage no está disponible (visor
+   restringido, modo privado), se usa memoria y la app sigue funcionando. */
+const almacen = (() => {
+  let mem = {};
+  return {
+    leer() {
+      try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; }
+      catch (e) { return mem; }
+    },
+    guardar(o) {
+      mem = o;
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(o)); } catch (e) {}
+    }
+  };
+})();
+
+function setStamp(txt) { $("stamp").textContent = txt; }
+function setBusy(id, b) {
+  const btn = $("btn-" + id), ico = $("ico-" + id);
+  if (btn) btn.disabled = b;
+  if (ico) ico.className = "spin" + (b ? " go" : "");
+}
+function setProgress(id, txt) { const el = $("prog-" + id); if (el) el.textContent = txt; }
+
+/* ── PESTAÑAS ──────────────────────────────────────────────────────────────── */
+const TABS = ["fondos", "valores", "mercado"];
+function activarTab(cat) {
+  document.body.dataset.cat = cat;
+  TABS.forEach(t => {
+    const tab = $("tab-" + t), sec = $("sec-" + t), on = (t === cat);
+    tab.setAttribute("aria-selected", on ? "true" : "false");
+    tab.tabIndex = on ? 0 : -1;
+    sec.hidden = !on;
+  });
+}
+TABS.forEach((t, i) => {
+  const tab = $("tab-" + t);
+  tab.addEventListener("click", () => activarTab(t));
+  tab.addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const j = (i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length;
+    activarTab(TABS[j]); $("tab-" + TABS[j]).focus();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOQUE 1 · FONDOS DE INVERSIÓN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Estado real a jun-2026: de los proxies públicos solo corsproxy.io responde con
+// CORS válido, y SOLO desde *.github.io. La vía robusta —y la única que funciona
+// desde Codeberg— es el proxy propio, que va siempre primero.
+const _PROPIO = PROXY_FONDOS
+  ? [{ name:"propio", json:false, url: u => PROXY_FONDOS + encodeURIComponent(u) }] : [];
+const _CORSPROXY = { name:"corsproxy", json:false, url: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` };
+const _BASE = [   // respaldos públicos: hoy casi todos rotos, se dejan por si reviven
+  { name:"codetabs",   json:false, url: u => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` },
+  { name:"allorigins", json:false, url: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { name:"x2u",        json:false, url: u => `https://cors.x2u.in/${u}` },
+  { name:"allo-json",  json:true,  url: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}` },
+];
+const _H = location.hostname;
+const _CORSPROXY_OK = /(^|\.)github\.io$/i.test(_H) || _H === "localhost" || _H === "127.0.0.1";
+const PROXIES = [ ..._PROPIO, ...(_CORSPROXY_OK ? [_CORSPROXY] : []), ..._BASE ];
+const HAY_PROPIO = _PROPIO.length > 0;
+
+// Detecta respuestas-basura: muros anti-bot, captchas, avisos de rate-limit o
+// cuerpos truncados. Sin este filtro, un bloqueo se confundía con "estructura
+// cambiada" y el mensaje de error despistaba.
+function pareceValido(html) {
+  if (!html || html.length < 800) return false;
+  const cab = html.slice(0, 4000).toLowerCase();
+  const trampas = ["pardon our interruption","attention required","request unsuccessful",
+    "are you a human","captcha","access denied","akamai","rate limit","too many requests",
+    "enable javascript and cookies"];
+  return !trampas.some(t => cab.includes(t));
+}
+
+async function fetchHTML(url, startIdx = 0) {
+  const n = PROXIES.length;
+  let ultimoFallo = "sin respuesta de ningún proxy";
+  for (let k = 0; k < n; k++) {
+    const px = PROXIES[(startIdx + k) % n];
+    try {
+      const r = await fetch(px.url(url), { signal: AbortSignal.timeout(15000) });
+      if (!r.ok) { ultimoFallo = px.name + " HTTP " + r.status; continue; }
+      let html = "";
+      if (px.json) { const d = await r.json(); html = (d && d.contents) ? d.contents : ""; }
+      else { html = await r.text(); }
+      if (pareceValido(html)) return html;
+      ultimoFallo = px.name + " (bloqueo/anti-bot)";
+    } catch (_) { ultimoFallo = px.name + " (timeout/red)"; }
+  }
+  const e = new Error("BLOQUEO"); e.detalle = ultimoFallo; throw e;
+}
+
+/* ── PARSERS ───────────────────────────────────────────────────────────────── */
+const ISIN_RE = /\b([A-Z]{2}[A-Z0-9]{9}\d)\b/;
+
+/* Fundsquare. Lee el VL venga como venga: fichas /security/price y
+   /security/summary, mercado abierto ("Last NAV") o cerrado ("Previous NAV"). */
+function parseFundsquare(html, url) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  // El textContent crudo concatena celdas contiguas SIN espacio, así que fecha y
+  // precio llegaban pegados ("22/06/2026289.49"). Se separa cada bloque.
+  doc.querySelectorAll("td, th, tr, br, p, li, div").forEach(el => el.append(" "));
+  const txt = doc.body.textContent.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+
+  const isinM = txt.match(ISIN_RE);
+  const isin  = isinM ? isinM[1] : (isinHint(url) || "?");
+
+  let nombre = isin;
+  if (isinM) {
+    const after = txt.slice(isinM.index + isinM[1].length);
+    const corte = after.search(/Last NAV|Previous NAV|NAV calc|Documents|Overview|Add to|Open glossary/i);
+    nombre = after.slice(0, corte > 0 ? corte : 120).replace(/\s+/g, " ").trim() || isin;
+  }
+
+  const m = txt.match(/(\d{2}\/\d{2}\/\d{4})\s*([\d.,]+)\s*([A-Z]{3})\s*([-+]?\d+(?:[.,]\d+)?)\s*%/);
+  if (m) return { isin, nombre, fecha: m[1], nav: m[2].replace(/,/g, ""),
+                  var_pct: m[4].replace(",", ".") + "%", divisa: m[3], fuente: "Fundsquare" };
+
+  const tds = [...doc.querySelectorAll("td")];
+  const idx = tds.findIndex(td => /^Last NAV\s*$/i.test(td.textContent.trim()));
+  if (idx >= 0 && tds[idx+1] && tds[idx+2]) {
+    const fecha   = tds[idx+1].textContent.trim();
+    const navCell = tds[idx+2].textContent.replace(/\s+/g, " ").trim();
+    const mm = navCell.match(/([\d.,]+)\s*([A-Z]{3})\s*([-+]?[\d.,]+)\s*%/);
+    if (mm) return { isin, nombre, fecha, nav: mm[1].replace(/,/g, ""),
+                     var_pct: mm[3].replace(",", ".") + "%", divisa: mm[2], fuente: "Fundsquare" };
+  }
+  return null;
+}
+
+/* AVL: "Aktueller Kurs (DD.MM.YYYY) ±chg EUR (±pct %) precio EUR" */
+function parseAVL(html, url) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const parts = (doc.title || "").split("|").map(s => s.trim());
+  const ii = parts.findIndex(p => { const m = ISIN_RE.exec(p); return m && m[0] === p; });
+  const isin   = ii >= 0 ? parts[ii] : (ISIN_RE.exec(url) || [])[1] || "?";
+  const nombre = (ii > 0) ? parts[ii-1] : isin;
+  const txt    = doc.body.textContent.replace(/\s+/g, " ");
+
+  let m = txt.match(/Aktueller Kurs\s*\((\d{2}\.\d{2}\.\d{4})\)\s*[-+]?[\d.]+,\d+\s*EUR\s*\(([-+]?[\d.]+,\d+)\s*%\)\s*([\d.]+,\d+)\s*EUR/);
+  if (m) return { isin, nombre, fecha: m[1].replace(/\./g,"/"),
+                  nav: m[3].replace(".","").replace(",","."),
+                  var_pct: m[2].replace(",",".")+"%", divisa:"EUR", fuente:"AVL" };
+
+  const md = txt.match(/Aktueller Kurs\s*\((\d{2}\.\d{2}\.\d{4})\)/);
+  const mp = txt.match(/([\d.]+,\d+)\s*EUR\s*Aktueller Kurs/);
+  const mc = txt.match(/\(([-+]?\d+,\d+)\s*%\)/);
+  if (!md || !mp) return null;
+  return { isin, nombre, fecha: md[1].replace(/\./g,"/"),
+           nav: mp[1].replace(".","").replace(",","."),
+           var_pct: mc ? mc[1].replace(",",".")+"%" : "N/D", divisa:"EUR", fuente:"AVL" };
+}
+
+/* Financial Times: pares etiqueta/valor */
+function parseFT(html, url) {
+  const doc  = new DOMParser().parseFromString(html, "text/html");
+  const im   = url.match(/[?&]s=([A-Za-z0-9]+):/i);
+  const isin = im ? im[1].toUpperCase() : "?";
+  const h1   = doc.querySelector("h1");
+  const nombre = h1 ? h1.textContent.replace(/\s+/g," ").trim() : isin;
+
+  const pares = {};
+  doc.querySelectorAll("li, .mod-ui-data-list__item").forEach(el => {
+    const lab = el.querySelector(".mod-ui-data-list__label");
+    const val = el.querySelector(".mod-ui-data-list__value");
+    if (lab && val) pares[lab.textContent.trim().toLowerCase()] = val.textContent.trim();
+  });
+
+  const navK = Object.keys(pares).find(k => k.includes("price"));
+  const chgK = Object.keys(pares).find(k => k.includes("today's change") || k.includes("day change"));
+  const nav  = navK ? pares[navK].replace(",","") : null;
+  if (!nav) return null;
+
+  const vm = chgK ? (pares[chgK]||"").match(/([-+]?\d+(?:[.,]\d+)?)\s*%/) : null;
+  const fechaM = doc.body.textContent.match(/as of\s+([A-Za-z]{3}\s+\d{1,2}\s+\d{4})/i);
+  return { isin, nombre, fecha: fechaM ? ftFecha(fechaM[1]) : "N/D",
+           nav, var_pct: vm ? vm[1]+"%" : "N/D", divisa:"EUR", fuente:"FT" };
+}
+
+const MES = {Jan:"01",Feb:"02",Mar:"03",Apr:"04",May:"05",Jun:"06",
+             Jul:"07",Aug:"08",Sep:"09",Oct:"10",Nov:"11",Dec:"12"};
+function ftFecha(s) {
+  const m = s.match(/([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  return m ? `${m[2].padStart(2,"0")}/${MES[m[1]]||"??"}/${m[3]}` : s;
+}
+
+/* Investing.com: nombre y código de las metaetiquetas; precio y variación de las
+   celdas marcadas con clases pid-XXXX-last / pid-XXXX-pcp, con respaldos. */
+function parseInvesting(html, url) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const meta = n => (doc.querySelector(`meta[property="${n}"]`) ||
+                     doc.querySelector(`meta[name="${n}"]`) || {}).content || "";
+
+  const title = meta("og:title") || doc.title || "";
+  const codM  = title.match(/\(([A-Z0-9]{6,})\)/);
+  const isin  = codM ? codM[1] : (isinHint(url) || "?");
+  const nombre = title.replace(/^Fondo\s+/i, "").replace(/\s*\([^)]*\)\s*/, " ")
+                      .replace(/\s*-\s*Investing\.com.*$/i, "").replace(/\s+/g, " ").trim() || isin;
+
+  const pickPid = suf => {
+    const el = doc.querySelector(`[class*="pid-"][class*="-${suf}"]`);
+    return el ? el.textContent.replace(/[()\s]/g, "") : null;
+  };
+
+  let nav = pickPid("last");
+  if (!nav) nav = (meta("og:description").match(/[úu]ltimo precio:?\s*([\d.,]+)/i) || [])[1] || null;
+  if (!nav) return null;
+  nav = nav.replace(/\./g, "").replace(",", ".");
+
+  let var_pct = "N/D";
+  let pcp = pickPid("pcp");
+  if (!pcp) {
+    const txt = doc.body.textContent.replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+    pcp = (txt.match(/\(\s*([-+][\d.,]+)\s*%\s*\)/) || [])[1];
+  }
+  if (pcp) {
+    const mm = pcp.match(/([-+]?[\d.,]+)/);
+    if (mm) var_pct = mm[1].replace(",", ".") + "%";
+  }
+
+  let fecha = "N/D";
+  const txt2 = doc.body.textContent.replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+  const fM = txt2.match(/(\d{2}\/\d{2})\s*-\s*Info/i) || txt2.match(/(\d{2}\/\d{2}\/\d{4})/);
+  if (fM) fecha = fM[1].length === 5 ? `${fM[1]}/${new Date().getFullYear()}` : fM[1];
+
+  return { isin, nombre, fecha, nav, var_pct, divisa: "EUR", fuente: "Investing" };
+}
+
+function getParser(url) {
+  if (url.includes("markets.ft.com"))         return parseFT;
+  if (url.includes("fundsquare.net"))         return parseFundsquare;
+  if (url.includes("avl-investmentfonds.de")) return parseAVL;
+  if (url.includes("investing.com"))          return parseInvesting;
+  return null;
+}
+function isinHint(url) {
+  const m1 = url.match(/[?&]s=([A-Za-z0-9]+):/i); if (m1) return m1[1].toUpperCase();
+  const m2 = url.match(/idInstr=(\d+)/);          if (m2) return "id:" + m2[1];
+  const m3 = url.match(/details\/([A-Za-z0-9]+)/); if (m3) return m3[1].toUpperCase();
+  return "—";
+}
+function fuenteLabel(url) {
+  if (url.includes("markets.ft.com"))         return "FT";
+  if (url.includes("fundsquare.net"))         return "Fundsquare";
+  if (url.includes("avl-investmentfonds.de")) return "AVL";
+  if (url.includes("investing.com"))          return "Investing";
+  return "—";
+}
+function fmtNav(nav, div) {
+  const n = parseFloat(nav);
+  if (isNaN(n)) return nav;
+  return n.toLocaleString("es-ES", { minimumFractionDigits:2, maximumFractionDigits:4 }) + " " + (div || "EUR");
+}
+function pctNum(pct) {
+  if (!pct || pct === "N/D") return null;
+  const m = pct.match(/([-+]?)([\d.]+)%/);
+  return m ? parseFloat(m[1] + m[2]) : null;
+}
+
+/* ── RENDER DE FONDOS ──────────────────────────────────────────────────────── */
+const fondoPct = {};   // índice de fila -> variación % (para los indicadores)
+
+function renderFilasFondos() {
+  const tbody = $("tb-fondos");
+  tbody.innerHTML = "";
+  FONDOS.forEach((f, i) => {
+    const tr = document.createElement("tr");
+    tr.id = "f-row-" + i;
+
+    if (f.separador) {
+      tr.className = "row-sep";
+      tr.innerHTML = `<td colspan="6">${esc(f.titulo)}</td>`;
+      tbody.appendChild(tr); return;
+    }
+    if (f.bloqueado) {
+      tr.className = "row-block";
+      tr.innerHTML = `
+        <td class="c-name" data-label="Fondo">${esc(f.nombre||"—")}<small>${esc(f.nota||"")}</small></td>
+        <td class="c-isin" data-label="ISIN">—</td>
+        <td class="c-fecha" data-label="Fecha VL">—</td>
+        <td class="c-nav" data-label="Valor liquidativo">—</td>
+        <td class="c-pct" data-label="Var. %">—</td>
+        <td data-label="Fuente"><span class="badge">Sin fuente</span></td>`;
+    } else {
+      tr.className = "clickable";
+      tr.title = f.url;
+      tr.onclick = () => window.open(f.url, "_blank");
+      tr.innerHTML = `
+        <td class="c-name" data-label="Fondo"><span class="sh">${esc(isinHint(f.url))}</span></td>
+        <td class="c-isin" data-label="ISIN"><span class="sh">—</span></td>
+        <td class="c-fecha" data-label="Fecha VL"><span class="sh">—</span></td>
+        <td class="c-nav" data-label="Valor liquidativo"><span class="sh">—</span></td>
+        <td class="c-pct" data-label="Var. %"><span class="pill neu sh">—</span></td>
+        <td data-label="Fuente"><span class="badge">${fuenteLabel(f.url)}</span></td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function fondoOK(i, r) {
+  const tr = $("f-row-" + i); if (!tr) return;
+  tr.className = "row-ok clickable";
+  tr.title = FONDOS[i].url;
+  tr.onclick = () => window.open(FONDOS[i].url, "_blank");
+  const p = pctNum(r.var_pct);
+  fondoPct[i] = p;
+  tr.innerHTML = `
+    <td class="c-name" data-label="Fondo">${esc(r.nombre)}</td>
+    <td class="c-isin" data-label="ISIN">${esc(r.isin)}</td>
+    <td class="c-fecha" data-label="Fecha VL">${esc(r.fecha)}</td>
+    <td class="c-nav" data-label="Valor liquidativo">${esc(fmtNav(r.nav, r.divisa))}</td>
+    <td class="c-pct" data-label="Var. %">${pill(p)}</td>
+    <td data-label="Fuente"><span class="badge">${esc(r.fuente)}</span></td>`;
+}
+
+function fondoErr(i, msg) {
+  const tr = $("f-row-" + i); if (!tr) return;
+  delete fondoPct[i];
+  tr.className = "row-err";
+  tr.title = FONDOS[i].url;
+  tr.onclick = () => window.open(FONDOS[i].url, "_blank");
+  tr.innerHTML = `
+    <td class="c-name" data-label="Fondo" style="color:var(--muted)">${esc(isinHint(FONDOS[i].url))}</td>
+    <td class="c-isin" data-label="ISIN">—</td>
+    <td class="c-fecha" data-label="Fecha VL">—</td>
+    <td class="c-nav" data-label="Valor liquidativo">—</td>
+    <td class="c-pct" data-label="Var. %">—</td>
+    <td data-label="Fuente"><span class="badge">${fuenteLabel(FONDOS[i].url)}</span>
+        <span class="c-err"> ${esc(msg)}</span></td>`;
+}
+
+function resumenFondos(total) {
+  const vals = Object.values(fondoPct).filter(v => typeof v === "number" && !isNaN(v));
+  const alza = vals.filter(v => v > 0).length;
+  const baja = vals.filter(v => v < 0).length;
+  const media = vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+
+  $("k-f-leidos").textContent = `${vals.length}/${total}`;
+  $("k-f-leidos-s").textContent = vals.length === total ? "todas las fuentes respondieron" : "faltan fuentes por responder";
+  $("k-f-alza").textContent = alza || "0";
+  $("k-f-baja").textContent = baja || "0";
+  $("k-f-media").innerHTML = media == null ? "—" : pill(media);
+  $("n-fondos").textContent = FONDOS.filter(f => !f.separador).length;
+}
+
+async function cargarFondos() {
+  setBusy("fondos", true);
+  const total = FONDOS.filter(f => !f.bloqueado && !f.separador).length;
+  let done = 0;
+  setProgress("fondos", `0/${total} fondos`);
+  $("notas-fondos").innerHTML = "";
+  renderFilasFondos();
+
+  // Consultas en paralelo PERO con freno: 3 hilos, arranque escalonado y un
+  // pequeño retardo con jitter. Los proxies tumban las ráfagas (429); espaciarlas
+  // evita el patrón "unos cargan y otros no".
+  const pend = FONDOS.map((f, i) => ({ f, i })).filter(x => !x.f.bloqueado && !x.f.separador);
+  let cursor = 0;
+  async function hilo(wid) {
+    await sleep(wid * 250);
+    while (cursor < pend.length) {
+      const { f, i } = pend[cursor++];
+      await sleep(150 + Math.random() * 250);
+      try {
+        const start  = HAY_PROPIO ? 0 : (i % PROXIES.length);
+        const html   = await fetchHTML(f.url, start);
+        const parser = getParser(f.url);
+        const result = parser ? parser(html, f.url) : null;
+        result ? fondoOK(i, result) : fondoErr(i, "Sin datos — ¿anti-bot o estructura cambiada?");
+      } catch (e) {
+        fondoErr(i, e.message === "BLOQUEO"
+          ? "Proxies saturados/anti-bot — reintenta · " + (e.detalle || "") : e.message);
+      }
+      done++;
+      setProgress("fondos", `${done}/${total} fondos`);
+      resumenFondos(total);
+    }
+  }
+  await Promise.all(Array.from({ length: 3 }, (_, w) => hilo(w)));
+
+  resumenFondos(total);
+  setBusy("fondos", false);
+
+  const aviso = HAY_PROPIO
+    ? `<span>✅ <b>Proxy propio activo.</b> Funciona desde cualquier host (Codeberg incluido) y sin límites de terceros.</span>`
+    : `<span>🛠️ <b>Sin proxy propio.</b> Los proxies públicos están casi todos caídos. Despliega tu Worker y pega su URL en <code>PROXY_FONDOS</code>.</span>`;
+  $("notas-fondos").innerHTML = aviso + `
+    <span>⚠ <b>Financial Times:</b> anti-bot agresivo. Un proxy propio con User-Agent de navegador suele saltárselo; si Cloudflare lo bloquea, prueba Deno Deploy.</span>
+    <span>🔎 <b>Fundsquare:</b> lee las fichas /security/summary y /security/price, en día hábil o festivo (toma "Previous NAV" con el mercado cerrado).</span>
+    <span>📈 <b>Investing.com</b> cubre azValor Global Value PP: precio, variación y fecha del bloque de cotización.</span>
+    <span>💡 Haz clic en cualquier fila para abrir la ficha original del fondo.</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOQUE 2 · VALORES, ETF Y ETN EN CARTERA (precio del mercado europeo, EUR)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const estadoCartera = {};   // isin -> { price, currency, prevClose, time, cached, error }
+
+async function fetchQuoteYahoo(symbol) {
+  const destinos = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+  ];
+  const envoltorios = PROXY_YAHOO
+    ? [u => PROXY_YAHOO + encodeURIComponent(u)]
+    : [u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+       u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`];
+
+  for (const destino of destinos) {
+    for (const envolver of envoltorios) {
+      try {
+        const res = await fetch(envolver(destino), { cache:'no-store' });
+        if (!res.ok) continue;
+        const data = JSON.parse(await res.text());
+        const m = data?.chart?.result?.[0]?.meta;
+        if (m && typeof m.regularMarketPrice === 'number') {
+          return {
+            price: m.regularMarketPrice,
+            currency: m.currency || 'EUR',
+            prevClose: (typeof m.chartPreviousClose === 'number') ? m.chartPreviousClose
+                     : (typeof m.previousClose === 'number') ? m.previousClose : null,
+            time: m.regularMarketTime ? m.regularMarketTime * 1000 : Date.now()
+          };
+        }
+      } catch (e) { /* siguiente proxy */ }
+    }
+  }
+  return null;
+}
+
+function renderFilasValores() {
+  $("tb-valores").innerHTML = POSICIONES.map(p => {
+    const s = estadoCartera[p.isin] || {};
+    const hay = typeof s.price === 'number';
+    const valor = hay ? s.price * p.qty : null;
+    const coste = p.cost * p.qty;
+    const pg    = hay ? valor - coste : null;
+    const pgPct = hay ? (pg / coste) * 100 : null;
+
+    const prev   = s.prevClose;
+    const hayDia = hay && typeof prev === 'number' && prev > 0;
+    const diaEur = hayDia ? (s.price - prev) * p.qty : null;
+    const diaPct = hayDia ? ((s.price - prev) / prev) * 100 : null;
+
+    let punto = 'err', titulo = 'Sin precio: revisa el proxy o el símbolo';
+    if (hay) {
+      const edad = Date.now() - (s.time || 0);
+      if (s.cached || s.error || edad > STALE_MIN * 60000) { punto = 'stale'; titulo = 'Último precio conocido, no reciente'; }
+      else { punto = 'live'; titulo = 'Precio reciente'; }
+    }
+    const avisoDivisa = (hay && s.currency && s.currency !== 'EUR')
+      ? ` <span class="tag" style="color:var(--warn)" title="El proveedor devuelve ${esc(s.currency)}">⚠ ${esc(s.currency)}</span>` : '';
+
+    return `<tr class="row-data">
+      <td class="c-name" data-label="Activo">
+        <span class="nm"><span class="dot-live ${punto}" title="${titulo}"></span>${esc(p.name)}<span class="tag">${esc(p.tipo)}</span>${avisoDivisa}</span>
+        <small>${esc(p.isin)} · ${esc(p.yahoo)} · ${esc(p.venue)} · IBKR ${esc(p.ibkr)}</small>
+      </td>
+      <td class="c-num" data-label="Cant.">${p.qty}</td>
+      <td class="c-nav" data-label="Precio">${hay ? eur.format(s.price) : '<span class="sh">…</span>'}</td>
+      <td class="c-pct" data-label="Hoy">${diaPct != null ? pill(diaPct, eurFirmado(diaEur)) : '<span class="pill neu">—</span>'}</td>
+      <td class="c-nav" data-label="Valor">${valor != null ? eur.format(valor) : '—'}</td>
+      <td class="c-num ${pg != null ? claseDe(pg) : ''}" data-label="P/G">${pg != null ? eurFirmado(pg) : '—'}</td>
+      <td class="c-pct" data-label="P/G %">${pgPct != null ? pill(pgPct) : '<span class="pill neu">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTotalesValores() {
+  let valor = 0, coste = 0, dia = 0, valorPrev = 0, hayAlgo = false, hayDia = false, conPrecio = 0;
+  POSICIONES.forEach(p => {
+    const s = estadoCartera[p.isin] || {};
+    coste += p.cost * p.qty;
+    if (typeof s.price === 'number') {
+      valor += s.price * p.qty; hayAlgo = true; conPrecio++;
+      if (typeof s.prevClose === 'number' && s.prevClose > 0) {
+        dia += (s.price - s.prevClose) * p.qty;
+        valorPrev += s.prevClose * p.qty;
+        hayDia = true;
+      }
+    }
+  });
+  const pg = valor - coste;
+  const pgPct = coste ? (pg / coste) * 100 : 0;
+  const diaPct = valorPrev ? (dia / valorPrev) * 100 : 0;
+
+  $("k-v-valor").textContent = hayAlgo ? eur.format(valor) : '—';
+  $("k-v-coste").textContent = 'coste ' + eur.format(coste);
+  $("k-v-n").textContent = `${conPrecio}/${POSICIONES.length}`;
+  $("k-v-n-s").textContent = conPrecio === POSICIONES.length ? 'todas con precio' : 'alguna sin precio';
+  $("n-valores").textContent = POSICIONES.length;
+
+  const hoy = $("k-v-hoy"), hoyPct = $("k-v-hoy-pct");
+  if (hayDia) {
+    hoy.textContent = eurFirmado(dia); hoy.className = 'kpi-val sm ' + claseDe(dia);
+    hoyPct.textContent = pctFirmado(diaPct); hoyPct.className = 'kpi-sub ' + claseDe(dia);
+  } else { hoy.textContent = '—'; hoy.className = 'kpi-val sm'; hoyPct.textContent = ''; }
+
+  const el = $("k-v-pg"), elPct = $("k-v-pg-pct");
+  if (hayAlgo) {
+    el.textContent = eurFirmado(pg); el.className = 'kpi-val sm ' + claseDe(pg);
+    elPct.textContent = pctFirmado(pgPct); elPct.className = 'kpi-sub ' + claseDe(pg);
+  } else { el.textContent = '—'; el.className = 'kpi-val sm'; elPct.textContent = ''; }
+}
+
+async function cargarCartera() {
+  setBusy("valores", true);
+  setProgress("valores", "actualizando…");
+  const cache = almacen.leer();
+
+  // Se pinta primero lo guardado (arranque instantáneo aunque la red tarde)
+  POSICIONES.forEach(p => {
+    if (!estadoCartera[p.isin] && cache[p.isin]) estadoCartera[p.isin] = { ...cache[p.isin], cached:true };
+  });
+  renderFilasValores(); renderTotalesValores();
+
+  let hechos = 0;
+  await Promise.all(POSICIONES.map(async p => {
+    const q = await fetchQuoteYahoo(p.yahoo);
+    if (q) {
+      estadoCartera[p.isin] = { ...q, cached:false, error:false };
+      cache[p.isin] = q;
+    } else if (cache[p.isin]) {
+      estadoCartera[p.isin] = { ...cache[p.isin], cached:true, error:true };
+    } else {
+      estadoCartera[p.isin] = { error:true };
+    }
+    hechos++;
+    setProgress("valores", `${hechos}/${POSICIONES.length} posiciones`);
+    renderFilasValores();
+  }));
+
+  almacen.guardar(cache);
+  renderFilasValores(); renderTotalesValores();
+
+  const fallos = POSICIONES.filter(p => estadoCartera[p.isin]?.error).length;
+  setProgress("valores", fallos ? `${POSICIONES.length} posiciones · ${fallos} sin datos` : `${POSICIONES.length} posiciones`);
+  setBusy("valores", false);
+
+  $("notas-valores").innerHTML = PROXY_YAHOO
+    ? `<span>🟢 <b>Punto verde:</b> precio reciente · <b style="color:#B4530A">ámbar</b>: último precio conocido, fuera del horario de Xetra o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato.</span>
+       <span>📉 Precios de Yahoo Finance con retardo de ~15 min, vía tu proxy. Todo en EUR, sin conversión de divisa: no incluye efectivo ni dividendos.</span>
+       <span>🔁 Se refresca solo cada ${REFRESCO_CARTERA_MIN} min mientras la pestaña esté abierta.</span>`
+    : `<span class="warn">⚠ <b>Falta el proxy.</b> Pega la URL de tu Cloudflare Worker en <code>PROXY_YAHOO</code>, terminada en <code>?url=</code>.</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOQUE 3 · MERCADO PRINCIPAL (plaza de origen, USD, en directo)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const datosMercado = {};   // symbol -> { price, change, pct, prevClose }
+const extData = {};        // symbol -> { prePrice, postPrice, refClose }
+
+function renderFilasMercado() {
+  $("tb-mercado").innerHTML = MERCADO.map(t => `
+    <tr class="row-data" id="m-row-${t.symbol}">
+      <td class="c-name" data-label="Activo">
+        <span class="nm">${esc(t.name)}<span class="tag">${t.tipo === 'crypto' ? 'CRIPTO' : t.symbol}</span></span>
+        <small>${t.equiv ? 'En cartera: ' + esc(t.equiv) : ''}${t.nota ? (t.equiv ? ' · ' : '') + esc(t.nota) : ''}</small>
+      </td>
+      <td class="c-nav" data-label="Precio" id="m-price-${t.symbol}"><span class="sh">…</span></td>
+      <td class="c-pct" data-label="Hoy" id="m-chg-${t.symbol}"><span class="pill neu sh">—</span></td>
+      <td class="c-pct" data-label="Fuera de sesión" id="m-ext-${t.symbol}">${
+        t.tipo === 'crypto'
+          ? '<span class="ext-val na">cotiza 24/7</span>'
+          : `<span class="ext">
+               <span class="ext-item" title="Postmercado"><span class="ext-ico">🌙</span><span class="ext-val na" id="m-post-${t.symbol}">—</span></span>
+               <span class="ext-item" title="Premercado"><span class="ext-ico">☀️</span><span class="ext-val na" id="m-pre-${t.symbol}">—</span></span>
+             </span>`
+      }</td>
+      <td class="c-pct" data-label="Noticias">
+        <button class="news-btn" data-sym="${t.symbol}"><span class="chev">▾</span> Ver</button>
+      </td>
+    </tr>
+    <tr class="row-news" id="m-newsrow-${t.symbol}" hidden>
+      <td colspan="5"><div class="news" id="m-news-${t.symbol}"></div></td>
+    </tr>`).join('');
+}
+
+function actualizarPrecio(symbol, price, change, changePct) {
+  const p = $("m-price-" + symbol), c = $("m-chg-" + symbol);
+  if (!p || !c) return;
+  p.textContent = usd.format(price);
+  const cuantia = (change >= 0 ? '+' : '−') + usd.format(Math.abs(change));
+  c.innerHTML = pill(changePct, cuantia);
+  datosMercado[symbol] = { ...(datosMercado[symbol] || {}), price, change, pct: changePct };
+  resumenMercadoLento();
+}
+
+function marcarSinDatos(symbol, txt) {
+  const p = $("m-price-" + symbol), c = $("m-chg-" + symbol);
+  if (p) p.innerHTML = '<span class="flat">N/D</span>';
+  if (c) c.innerHTML = `<span class="pill neu">${esc(txt || '—')}</span>`;
+}
+
+async function fetchStockPrice(symbol) {
+  try {
+    const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
+    const q = await r.json();
+    if (q && q.c) {
+      datosMercado[symbol] = { ...(datosMercado[symbol] || {}), prevClose: q.pc };
+      actualizarPrecio(symbol, q.c, q.d, q.dp);
+    } else {
+      marcarSinDatos(symbol, 'sin cobertura');
+    }
+  } catch (e) { marcarSinDatos(symbol, 'error de red'); }
+}
+
+async function fetchCryptoPrice(symbol, market) {
+  try {
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=${market}&include_24hr_change=true`);
+    const d = await r.json();
+    if (d && d[symbol]) {
+      const p  = d[symbol][market];
+      const ch = d[symbol][`${market}_24h_change`] || 0;
+      actualizarPrecio(symbol, p, p - (p / (1 + ch / 100)), ch);
+    } else { marcarSinDatos(symbol, 'sin datos'); }
+  } catch (e) { marcarSinDatos(symbol, 'error de red'); }
+}
+
+function resumenMercado() {
+  const vals = MERCADO.map(t => datosMercado[t.symbol]?.pct).filter(v => typeof v === 'number' && !isNaN(v));
+  const alza = vals.filter(v => v > 0).length;
+  const media = vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+
+  $("k-m-alza").textContent = vals.length ? `${alza}/${vals.length}` : '—';
+  $("k-m-media").innerHTML  = media == null ? '—' : pill(media);
+  $("n-mercado").textContent = MERCADO.length;
+
+  let mejor = null;
+  MERCADO.forEach(t => {
+    const d = datosMercado[t.symbol];
+    if (d && typeof d.pct === 'number' && (!mejor || d.pct > mejor.pct)) mejor = { name:t.name, pct:d.pct };
+  });
+  $("k-m-mejor").innerHTML   = mejor ? pill(mejor.pct) : '—';
+  $("k-m-mejor-s").textContent = mejor ? mejor.name : '—';
+
+  const fases = { PRE:'Premercado', REGULAR:'Sesión abierta', POST:'Postmercado', WEEKEND:'Fin de semana' };
+  const fase = getMarketPhase();
+  $("k-m-fase").textContent = fases[fase];
+  $("k-m-fase-s").textContent = 'Nueva York · ' +
+    new Intl.DateTimeFormat('es-ES', { timeZone:'America/New_York', hour:'2-digit', minute:'2-digit' }).format(new Date());
+}
+
+/* Como mucho un recálculo por segundo, aunque lleguen veinte ticks. */
+const resumenMercadoLento = throttle(() => resumenMercado(), 1000);
+const selloDirecto = throttle(() => setStamp('En directo · ' + new Date().toLocaleTimeString('es-ES')), 1000);
+
+/* ── HORARIO EXTENDIDO (pre y post mercado) ────────────────────────────────
+   Fuente: endpoint chart de Yahoo con includePrePost=true, vía el Worker de
+   noticias. La fase se calcula en America/New_York; el valor solo aparece si la
+   fase lo permite Y hay dato fresco. */
+function getMarketPhase(date = new Date()) {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone:'America/New_York', weekday:'short', hour:'2-digit', minute:'2-digit', hour12:false
+  }).formatToParts(date);
+  const m = {}; partes.forEach(p => { m[p.type] = p.value; });
+  let hh = parseInt(m.hour, 10); if (hh === 24) hh = 0;
+  const t = hh * 60 + parseInt(m.minute, 10);
+  if (m.weekday === 'Sat' || m.weekday === 'Sun') return 'WEEKEND';
+  if (t >= 240 && t < 570) return 'PRE';       // 04:00–09:30
+  if (t >= 570 && t < 960) return 'REGULAR';   // 09:30–16:00
+  return 'POST';                                // 16:00–04:00
+}
+
+async function fetchExtendedHours(symbol) {
+  const hosts = ['query1', 'query2'];
+  let ultimo;
+  for (const h of hosts) {
+    const yfUrl = `https://${h}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
+                  `?interval=1m&range=5d&includePrePost=true&lang=en-US&region=US`;
+    try {
+      const res = await fetch(PROXY_NEWS + encodeURIComponent(yfUrl));
+      const body = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = JSON.parse(body);
+      const r = json?.chart?.result?.[0];
+      if (!r) throw new Error('respuesta sin datos');
+
+      const meta = r.meta || {}, ts = r.timestamp || [];
+      const closes = r.indicators?.quote?.[0]?.close || [];
+      const gmt = meta.gmtoffset || 0;
+      const refClose = meta.regularMarketPrice ?? meta.chartPreviousClose ?? meta.previousClose ?? null;
+
+      let prePrice = null, postPrice = null;
+      for (let i = 0; i < ts.length; i++) {
+        const c = closes[i];
+        if (c == null) continue;
+        const etMin = Math.floor(((((ts[i] + gmt) % 86400) + 86400) % 86400) / 60);
+        if (etMin >= 240 && etMin < 570) prePrice = c;
+        else if (etMin >= 960 && etMin < 1200) postPrice = c;
+      }
+      extData[symbol] = { prePrice, postPrice, refClose };
+      return;
+    } catch (e) { ultimo = e; }
+  }
+  throw ultimo;
+}
+
+function setExtVal(el, price, ref) {
+  const chg = price - ref, pct = ref ? (chg / ref) * 100 : 0;
+  el.className = 'ext-val ' + (chg >= 0 ? 'pos' : 'neg');
+  el.innerHTML = `${usd.format(price)} <span class="ext-pct">${chg >= 0 ? '+' : '−'}${num2.format(Math.abs(pct))} %</span>`;
+}
+function setExtNA(el) { el.className = 'ext-val na'; el.textContent = '—'; }
+
+function renderExtended(symbol) {
+  const post = $("m-post-" + symbol), pre = $("m-pre-" + symbol);
+  if (!post || !pre) return;
+  const fase = getMarketPhase(), d = extData[symbol] || {};
+  // 🌙 postmercado: visible de 16:00 a 04:00 ET · ☀️ premercado: de 04:00 a 09:30 ET
+  if (fase === 'POST' && d.postPrice != null && d.refClose) setExtVal(post, d.postPrice, d.refClose); else setExtNA(post);
+  if (fase === 'PRE'  && d.prePrice  != null && d.refClose) setExtVal(pre,  d.prePrice,  d.refClose); else setExtNA(pre);
+}
+
+async function loadExtendedAll() {
+  const acciones = MERCADO.filter(t => t.tipo === 'stock');
+  await Promise.all(acciones.map(t => fetchExtendedHours(t.symbol).catch(() => {})));
+  acciones.forEach(t => renderExtended(t.symbol));
+}
+
+async function cargarMercado() {
+  setBusy("mercado", true);
+  setProgress("mercado", "actualizando…");
+  await Promise.all(MERCADO.map(t =>
+    t.tipo === 'stock' ? fetchStockPrice(t.symbol) : fetchCryptoPrice(t.symbol, t.market)));
+  resumenMercado();
+  loadExtendedAll();
+  setProgress("mercado", `${MERCADO.length} activos · en directo`);
+  setBusy("mercado", false);
+  $("notas-mercado").innerHTML = `
+    <span>⚡ Precios en directo por WebSocket (Finnhub para acciones y ETF, Binance para Solana). La hora del sello marca el último tick recibido.</span>
+    <span>🌙 <b>Fuera de sesión:</b> la luna muestra el postmercado (16:00–04:00 en Nueva York) y el sol el premercado (04:00–09:30). Fuera de esas franjas no hay nada que enseñar.</span>
+    <span>🔗 Cada activo indica su equivalente europeo en tu cartera, para comparar precio de origen y reflejo en Xetra.</span>`;
+}
+
+/* ── TIEMPO REAL ───────────────────────────────────────────────────────────── */
+function wsAcciones() {
+  try {
+    const ws = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_KEY}`);
+    ws.addEventListener('open', () => {
+      MERCADO.filter(t => t.tipo === 'stock')
+             .forEach(t => ws.send(JSON.stringify({ type:'subscribe', symbol:t.symbol })));
+    });
+    ws.addEventListener('message', e => {
+      const m = JSON.parse(e.data);
+      if (m.type !== 'trade' || !m.data) return;
+      m.data.forEach(tr => {
+        const d = datosMercado[tr.s];
+        if (d && d.prevClose) {
+          const ch = tr.p - d.prevClose;
+          actualizarPrecio(tr.s, tr.p, ch, (ch / d.prevClose) * 100);
+          selloDirecto();
+        }
+      });
+    });
+    ws.addEventListener('error', () => {});
+  } catch (e) {}
+}
+function wsCripto() {
+  try {
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws/solusdt@ticker');
+    ws.onmessage = e => {
+      const d = JSON.parse(e.data);
+      actualizarPrecio('solana', +d.c, +d.p, +d.P);
+      selloDirecto();
+    };
+    ws.onerror = () => {};
+  } catch (e) {}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NOTICIAS · RSS por activo + titulares internacionales, con traducción
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const RSS_MAP = {
+  'BRK-B': 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=BRK-B&region=US&lang=en-US',
+  'DE':    'https://feeds.finance.yahoo.com/rss/2.0/headline?s=DE&region=US&lang=en-US',
+  'ACM':   'https://feeds.finance.yahoo.com/rss/2.0/headline?s=ACM&region=US&lang=en-US',
+  'SPGI':  'https://feeds.finance.yahoo.com/rss/2.0/headline?s=SPGI&region=US&lang=en-US',
+  'MBGL':  'https://feeds.finance.yahoo.com/rss/2.0/headline?s=MBGL&region=US&lang=en-US',
+  'PKG':   'https://feeds.finance.yahoo.com/rss/2.0/headline?s=PKG&region=US&lang=en-US',
+  'BLK':   'https://feeds.finance.yahoo.com/rss/2.0/headline?s=BLK&region=US&lang=en-US',
+  'WMT':   'https://feeds.finance.yahoo.com/rss/2.0/headline?s=WMT&region=US&lang=en-US',
+  'IWF':   'https://feeds.finance.yahoo.com/rss/2.0/headline?s=IWF&region=US&lang=en-US',
+  'UNP':   'https://feeds.finance.yahoo.com/rss/2.0/headline?s=UNP&region=US&lang=en-US',
+  'solana':'https://news.google.com/rss/search?q=Solana+crypto&hl=en-US&gl=US&ceid=US:en'
+};
+const FUENTES_SOLANA = [
+  { name:'CoinDesk',   url:'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml&category=solana' },
+  { name:'CryptoSlate',url:'https://cryptoslate.com/tag/solana/feed/' },
+  { name:'The Block',  url:'https://www.theblock.co/rss/tag/solana' },
+  { name:'Decrypt',    url:'https://decrypt.co/feed?post_type=tag&tag_name=solana' }
+];
+const FUENTES_GENERALES = {
+  'BBC Business': 'https://feeds.bbci.co.uk/news/business/rss.xml',
+  'Sky News':     'https://feeds.skynews.com/feeds/rss/business.xml'
+};
+
+async function parseRSS(url, symbol, nombreFuente = '') {
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), 8000);
+  let res;
+  try { res = await fetch(PROXY_NEWS + encodeURIComponent(url), { signal: controller.signal }); }
+  finally { clearTimeout(to); }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const doc = new DOMParser().parseFromString(await res.text(), "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("el feed no es XML válido");
+
+  const items = doc.querySelectorAll("item");
+  if (items.length) {
+    return Array.from(items).slice(0, 5).map(it => ({
+      title: it.querySelector("title")?.textContent || "Sin título",
+      link:  it.querySelector("link")?.textContent || "#",
+      desc: (it.querySelector("description")?.textContent || "").replace(/<[^>]+>/g, "").slice(0, 200) || "Sin resumen",
+      date:  new Date(it.querySelector("pubDate")?.textContent || Date.now()),
+      symbol, source: nombreFuente
+    }));
+  }
+  const entries = doc.querySelectorAll("entry");
+  if (entries.length) {
+    return Array.from(entries).slice(0, 5).map(en => ({
+      title: en.querySelector("title")?.textContent || "Sin título",
+      link:  en.querySelector("link")?.getAttribute("href") || "#",
+      desc: ((en.querySelector("content")?.textContent || en.querySelector("summary")?.textContent || "")
+              .replace(/<[^>]+>/g, "").slice(0, 200)) || "Sin resumen",
+      date:  new Date(en.querySelector("updated")?.textContent || en.querySelector("published")?.textContent || Date.now()),
+      symbol, source: nombreFuente
+    }));
+  }
+  throw new Error("el feed no traía titulares");
+}
+
+// Detecta inglés para NO retraducir lo que ya viene en español.
+function esIngles(text) {
+  if (!text || !text.trim()) return false;
+  if (/[áéíóúñ¿¡]/i.test(text)) return false;
+  const bajo = ' ' + text.toLowerCase() + ' ';
+  const pistasEs = [' el ',' la ',' los ',' las ',' de ',' del ',' que ',' con ',' para ',' por ',
+    ' una ',' este ',' según ',' más ',' empresa ',' mercado ',' acción ',' acciones ',' precio ',
+    ' bolsa ',' ganancias ',' inversores '];
+  if (pistasEs.some(w => bajo.includes(w))) return false;
+  const pistasEn = [' the ',' and ',' for ',' with ',' this ',' that ',' from ',' which ',' company ',
+    ' market ',' stock ',' shares ',' price ',' business ',' report ',' earnings ',' crypto ',
+    ' blockchain ',' token '];
+  return pistasEn.some(w => bajo.includes(w));
+}
+
+// Traducción EN→ES vía MyMemory. Si falla, se conserva el titular original:
+// nunca se inventa texto.
+async function traducir(text) {
+  if (!text || !text.trim()) return text;
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), 6000);
+  try {
+    const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|es`,
+                          { signal: controller.signal });
+    const d = await r.json();
+    const out = d?.responseData?.translatedText;
+    return (out && !/MYMEMORY WARNING|QUERY LENGTH|QUOTA|INVALID/i.test(out)) ? out : text;
+  } catch (e) { return text; }
+  finally { clearTimeout(to); }
+}
+
+// Cola con concurrencia limitada: no satura la API de traducción.
+async function cola(tareas, limite = 4) {
+  const pend = tareas.slice();
+  await Promise.all(Array.from({ length: Math.min(limite, pend.length) }, async () => {
+    while (pend.length) { try { await pend.shift()(); } catch (e) {} }
+  }));
+}
+
+// Pinta los titulares reales de inmediato y traduce después, en segundo plano.
+function pintarNoticias(cont, items) {
+  cont.innerHTML = items.map((it, i) => `
+    <article data-idx="${i}">
+      <h3><a href="${esc(it.link)}" target="_blank" rel="noopener" data-role="title">${esc(it.title)}</a></h3>
+      <p data-role="desc">${esc(it.desc)}</p>
+      <small>${it.source ? `<span class="news-src">${esc(it.source)}</span>` : ''}${it.date.toLocaleString('es-ES')}</small>
+    </article>`).join('');
+
+  cola(items.map((it, i) => async () => {
+    if (!(esIngles(it.title) || esIngles(it.desc))) return;
+    const [t, d] = await Promise.all([traducir(it.title), traducir(it.desc)]);
+    const art = cont.querySelector(`article[data-idx="${i}"]`);
+    if (!art) return;
+    const a = art.querySelector('[data-role="title"]'); if (a && t) a.textContent = t;
+    const p = art.querySelector('[data-role="desc"]');  if (p && d) p.textContent = d;
+  }), 4);
+}
+
+function unicos(items) {
+  const vistos = new Set();
+  return items.filter(it => vistos.has(it.title) ? false : (vistos.add(it.title), true));
+}
+
+async function abrirNoticias(symbol, btn) {
+  const fila = $("m-newsrow-" + symbol), cont = $("m-news-" + symbol);
+  const abrir = fila.hidden;
+  fila.hidden = !abrir;
+  btn.classList.toggle('open', abrir);
+  btn.innerHTML = `<span class="chev">▾</span> ${abrir ? 'Ocultar' : 'Ver'}`;
+  if (!abrir || cont.querySelector('article')) return;
+
+  cont.innerHTML = '<div class="estado">Buscando titulares y traduciéndolos…</div>';
+  try {
+    let todo = [];
+    if (symbol === 'solana') {
+      const res = await Promise.all(FUENTES_SOLANA.map(s => parseRSS(s.url, symbol, s.name).catch(() => [])));
+      res.forEach(l => { todo = todo.concat(l); });
+      todo = todo.concat(await parseRSS(RSS_MAP.solana, symbol, 'Google News').catch(() => []));
+    } else {
+      const feed = RSS_MAP[symbol];
+      if (!feed) throw new Error("este activo no tiene fuente de noticias configurada");
+      todo = await parseRSS(feed, symbol, 'Yahoo Finance');
+    }
+
+    // Titulares generales que mencionen el símbolo como palabra completa
+    const re = new RegExp(`\\b${symbol}\\b`, 'i');
+    const generales = await Promise.all(
+      Object.entries(FUENTES_GENERALES).map(([n, u]) => parseRSS(u, symbol, n).catch(() => [])));
+    generales.forEach(l => { todo = todo.concat(l.filter(it => re.test(it.title) || re.test(it.desc))); });
+
+    const lista = unicos(todo).sort((a, b) => b.date - a.date).slice(0, 8);
+    if (!lista.length) { cont.innerHTML = '<div class="estado">Ninguna fuente publica nada de este activo ahora mismo.</div>'; return; }
+    pintarNoticias(cont, lista);
+  } catch (e) {
+    cont.innerHTML = `<div class="estado err">No se pudieron cargar los titulares: ${esc(e.message)}. Reintenta en un momento.</div>`;
+  }
+}
+
+async function abrirGenerales() {
+  const btn = $("btn-gen"), cont = $("news-gen");
+  const abrir = cont.hidden;
+  cont.hidden = !abrir;
+  btn.classList.toggle('open', abrir);
+  btn.innerHTML = `<span class="chev">▾</span> ${abrir ? 'Ocultar titulares internacionales' : 'Ver titulares internacionales'}`;
+  if (!abrir || cont.querySelector('article')) return;
+
+  cont.innerHTML = '<div class="estado">Buscando titulares y traduciéndolos…</div>';
+  try {
+    const res = await Promise.all(
+      Object.entries(FUENTES_GENERALES).map(([n, u]) => parseRSS(u, 'general', n).catch(() => [])));
+    let todo = [];
+    res.forEach(l => { todo = todo.concat(l); });
+    const lista = unicos(todo).sort((a, b) => b.date - a.date).slice(0, 15);
+    if (!lista.length) { cont.innerHTML = '<div class="estado">Las fuentes internacionales no responden ahora mismo.</div>'; return; }
+    pintarNoticias(cont, lista);
+  } catch (e) {
+    cont.innerHTML = `<div class="estado err">No se pudieron cargar los titulares: ${esc(e.message)}.</div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ARRANQUE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+$("tb-mercado").addEventListener('click', e => {
+  const btn = e.target.closest('.news-btn[data-sym]');
+  if (btn) abrirNoticias(btn.dataset.sym, btn);
+});
+$("btn-gen").addEventListener('click', abrirGenerales);
+$("btn-fondos").addEventListener('click', cargarFondos);
+$("btn-valores").addEventListener('click', cargarCartera);
+$("btn-mercado").addEventListener('click', cargarMercado);
+$("btn-all").addEventListener('click', actualizarTodo);
+
+async function actualizarTodo() {
+  const b = $("btn-all"), i = $("ico-all");
+  b.disabled = true; i.className = "spin go";
+  setStamp("Actualizando las tres secciones…");
+  await Promise.allSettled([cargarFondos(), cargarCartera(), cargarMercado()]);
+  setStamp("Actualizado " + new Date().toLocaleTimeString('es-ES'));
+  b.disabled = false; i.className = "spin";
+}
+
+activarTab("fondos");
+$("n-fondos").textContent = FONDOS.filter(f => !f.separador).length;
+renderFilasMercado();
+renderFilasValores();
+renderTotalesValores();
+resumenMercado();
+actualizarTodo();
+
+// La cartera se refresca sola; los precios pre/post cada minuto; y cada 20 s se
+// reevalúa la fase de la sesión para que luna y sol aparezcan y desaparezcan
+// en los cambios de horario (16:00, 04:00, 09:30 en Nueva York) sin esperar red.
+setInterval(cargarCartera, REFRESCO_CARTERA_MIN * 60000);
+setInterval(loadExtendedAll, 60000);
+setInterval(() => {
+  MERCADO.filter(t => t.tipo === 'stock').forEach(t => renderExtended(t.symbol));
+  resumenMercado();
+}, 20000);
+
+wsAcciones();
+wsCripto();
+</script>
+</body>
+</html>
