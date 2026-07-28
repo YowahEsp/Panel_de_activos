@@ -117,7 +117,7 @@ h1 em { color: var(--cat); font-style: normal; transition: color .35s ease; }
 .tabs {
   position: relative;
   display: flex; gap: 10px; padding: 14px 28px 0;
-  max-width: 1240px; margin: 0 auto; flex-wrap: wrap;
+  max-width: 1340px; margin: 0 auto; flex-wrap: wrap;
 }
 .tab {
   flex: 1 1 220px; text-align: left; cursor: pointer;
@@ -156,7 +156,8 @@ h1 em { color: var(--cat); font-style: normal; transition: color .35s ease; }
 .tab[aria-selected="true"] .tab-n { background: var(--tc); color: #fff; }
 
 /* ── CONTENIDO ────────────────────────────────────────────────────────────── */
-main { padding: 0 28px 40px; max-width: 1240px; margin: 0 auto; scroll-margin-top: 140px; }
+main { padding: 0 28px 40px; max-width: 1340px; margin: 0 auto; scroll-margin-top: 140px; }
+
 .sec { animation: entra .28s ease; }
 @keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -242,6 +243,18 @@ tr:last-child td { border-bottom: none; }
 .c-fecha { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .c-nav   { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .c-num   { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.c-num small { display: block; font-size: 11px; font-weight: 600; opacity: .72; margin-top: 1px; }
+/* La cartera lleva nueve columnas: se ajusta el aire para que quepan */
+#sec-valores th, #sec-valores td { padding-left: 11px; padding-right: 11px; }
+#sec-valores .c-name { max-width: 250px; }
+tfoot td {
+  background: var(--surf2); font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  border-top: 2px solid var(--border); border-bottom: none; text-align: right;
+}
+tfoot td.l {
+  text-align: left; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 12px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--cat);
+}
 .c-pct   { text-align: right; white-space: nowrap; }
 .pos { color: #067A4A; }
 .neg { color: #C31933; }
@@ -373,6 +386,18 @@ tr:last-child td { border-bottom: none; }
 }
 .panel-gen .news { padding: 4px 16px 12px; }
 
+/* Ventanas intermedias: la cartera aprieta un poco para no tener que rodar */
+@media (min-width: 701px) and (max-width: 1200px) {
+  #sec-valores table { font-size: 13px; }
+  #sec-valores th, #sec-valores td { padding-left: 7px; padding-right: 7px; }
+  #sec-valores th { font-size: 10.5px; letter-spacing: .04em; }
+  #sec-valores .c-nav { font-size: 13.5px; }
+  #sec-valores .c-num { font-size: 12.5px; }
+  #sec-valores .c-name { max-width: 190px; }
+  #sec-valores .c-name small { font-size: 10.5px; }
+  #sec-valores .pill { font-size: 12px; padding: 3px 8px; }
+}
+
 /* ── MÓVIL: TABLA → TARJETAS ──────────────────────────────────────────────── */
 @media (max-width: 700px) {
   .topbar { padding: 14px; }
@@ -418,6 +443,18 @@ tr:last-child td { border-bottom: none; }
   tr.row-sep { display: block; margin: 4px 0 12px; }
   .row-sep td { display: block; text-align: center; border-radius: 9px; border: 1px solid var(--border); }
   .row-sep td::before { content: none; }
+
+  tfoot { display: block; margin-top: 4px; }
+  tfoot tr {
+    display: block; background: var(--surf2);
+    border: 1px solid var(--border); border-left: 4px solid var(--cat);
+    border-radius: 11px; overflow: hidden;
+  }
+  tfoot td { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--border); border-top: none; }
+  tfoot td:last-child { border-bottom: none; }
+  tfoot td::before { content: attr(data-label); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  tfoot td.l { display: block; text-align: left; }
+  tfoot td.l::before { content: none; }
 
   tr.row-news { display: block; margin: -8px 0 12px; }
   .row-news td { display: block; padding: 0; border-radius: 0 0 11px 11px; }
@@ -1112,35 +1149,36 @@ async function cargarFondos() {
    BLOQUE 2 · VALORES, ETF Y ETN EN CARTERA (precio del mercado europeo, EUR)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const estadoCartera = {};   // isin -> { price, currency, prevClose, time, cached, error }
+const estadoCartera = {};   // símbolo IBKR -> { price, currency, prevClose, time, cached, error, via }
 
-async function fetchQuoteYahoo(symbol) {
-  const destinos = [
-    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
-  ];
+// Prueba el símbolo de la línea que cotiza IBKR y, si esa no responde, el
+// respaldo. Devuelve también por cuál entró, para poder avisar en la fila.
+async function fetchQuoteYahoo(simbolos) {
   const envoltorios = PROXY_YAHOO
     ? [u => PROXY_YAHOO + encodeURIComponent(u)]
     : [u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
        u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`];
 
-  for (const destino of destinos) {
-    for (const envolver of envoltorios) {
-      try {
-        const res = await fetch(envolver(destino), { cache:'no-store' });
-        if (!res.ok) continue;
-        const data = JSON.parse(await res.text());
-        const m = data?.chart?.result?.[0]?.meta;
-        if (m && typeof m.regularMarketPrice === 'number') {
-          return {
-            price: m.regularMarketPrice,
-            currency: m.currency || 'EUR',
-            prevClose: (typeof m.chartPreviousClose === 'number') ? m.chartPreviousClose
-                     : (typeof m.previousClose === 'number') ? m.previousClose : null,
-            time: m.regularMarketTime ? m.regularMarketTime * 1000 : Date.now()
-          };
-        }
-      } catch (e) { /* siguiente proxy */ }
+  for (const simbolo of simbolos.filter(Boolean)) {
+    for (const host of ['query1', 'query2']) {
+      const destino = `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(simbolo)}?interval=1d&range=1d`;
+      for (const envolver of envoltorios) {
+        try {
+          const res = await fetch(envolver(destino), { cache:'no-store' });
+          if (!res.ok) continue;
+          const m = JSON.parse(await res.text())?.chart?.result?.[0]?.meta;
+          if (m && typeof m.regularMarketPrice === 'number') {
+            return {
+              price: m.regularMarketPrice,
+              currency: m.currency || 'EUR',
+              prevClose: (typeof m.chartPreviousClose === 'number') ? m.chartPreviousClose
+                       : (typeof m.previousClose === 'number') ? m.previousClose : null,
+              time: m.regularMarketTime ? m.regularMarketTime * 1000 : Date.now(),
+              via: simbolo
+            };
+          }
+        } catch (e) { /* siguiente proxy */ }
+      }
     }
   }
   return null;
@@ -1148,47 +1186,54 @@ async function fetchQuoteYahoo(symbol) {
 
 function renderFilasValores() {
   $("tb-valores").innerHTML = POSICIONES.map(p => {
-    const s = estadoCartera[p.isin] || {};
+    const s = estadoCartera[p.ibkr] || {};
     const hay = typeof s.price === 'number';
-    const valor = hay ? s.price * p.qty : null;
-    const coste = p.cost * p.qty;
-    const pg    = hay ? valor - coste : null;
-    const pgPct = hay ? (pg / coste) * 100 : null;
+    const medio = p.coste / p.qty;                    // = "Precio medio" de IBKR
+    const valor = hay ? s.price * p.qty : null;       // = "Valor de mercado"
+    const noReal = hay ? valor - p.coste : null;      // = "PyG no realizadas"
+    const noRealPct = hay ? (noReal / p.coste) * 100 : null;
 
-    const prev   = s.prevClose;
+    const prev = s.prevClose;
     const hayDia = hay && typeof prev === 'number' && prev > 0;
-    const diaEur = hayDia ? (s.price - prev) * p.qty : null;
+    const diaEur = hayDia ? (s.price - prev) * p.qty : null;   // = "PyG diarias"
     const diaPct = hayDia ? ((s.price - prev) / prev) * 100 : null;
 
     let punto = 'err', titulo = 'Sin precio: revisa el proxy o el símbolo';
     if (hay) {
       const edad = Date.now() - (s.time || 0);
       if (s.cached || s.error || edad > STALE_MIN * 60000) { punto = 'stale'; titulo = 'Último precio conocido, no reciente'; }
-      else { punto = 'live'; titulo = 'Precio reciente'; }
+      else { punto = 'live'; titulo = 'Precio reciente de ' + (s.via || p.yahoo); }
     }
-    const avisoDivisa = (hay && s.currency && s.currency !== 'EUR')
-      ? ` <span class="tag" style="color:var(--warn)" title="El proveedor devuelve ${esc(s.currency)}">⚠ ${esc(s.currency)}</span>` : '';
+    const avisos =
+      (hay && s.currency && s.currency !== 'EUR'
+        ? ` <span class="tag" style="color:var(--warn)" title="El proveedor devuelve ${esc(s.currency)}">⚠ ${esc(s.currency)}</span>` : '') +
+      (hay && s.via && s.via !== p.yahoo
+        ? ` <span class="tag" style="color:var(--warn)" title="La línea de IBKR no respondió; precio tomado de ${esc(s.via)}">⚠ ${esc(s.via)}</span>` : '');
 
     return `<tr class="row-data">
-      <td class="c-name" data-label="Activo">
-        <span class="nm"><span class="dot-live ${punto}" title="${titulo}"></span>${esc(p.name)}<span class="tag">${esc(p.tipo)}</span>${avisoDivisa}</span>
-        <small>${esc(p.isin)} · ${esc(p.yahoo)} · ${esc(p.venue)} · IBKR ${esc(p.ibkr)}</small>
+      <td class="c-name" data-label="Instrumento">
+        <span class="nm"><span class="dot-live ${punto}" title="${titulo}"></span>${esc(p.ibkr)}<span class="tag">${esc(p.tipo)}</span>${avisos}</span>
+        <small>${esc(p.name)} · ${esc(p.isin)} · ${esc(p.venue)}</small>
       </td>
-      <td class="c-num" data-label="Cant.">${p.qty}</td>
-      <td class="c-nav" data-label="Precio">${hay ? eur.format(s.price) : '<span class="sh">…</span>'}</td>
-      <td class="c-pct" data-label="Hoy">${diaPct != null ? pill(diaPct, eurFirmado(diaEur)) : '<span class="pill neu">—</span>'}</td>
-      <td class="c-nav" data-label="Valor">${valor != null ? eur.format(valor) : '—'}</td>
-      <td class="c-num ${pg != null ? claseDe(pg) : ''}" data-label="P/G">${pg != null ? eurFirmado(pg) : '—'}</td>
-      <td class="c-pct" data-label="P/G %">${pgPct != null ? pill(pgPct) : '<span class="pill neu">—</span>'}</td>
+      <td class="c-num" data-label="Posición">${p.qty}</td>
+      <td class="c-nav" data-label="Último">${hay ? eur.format(s.price) : '<span class="sh">…</span>'}</td>
+      <td class="c-pct" data-label="% Variación">${diaPct != null ? pill(diaPct) : '<span class="pill neu">—</span>'}</td>
+      <td class="c-num" data-label="Precio medio">${eur.format(medio)}</td>
+      <td class="c-num" data-label="Base de coste">${eur.format(p.coste)}</td>
+      <td class="c-nav" data-label="Valor de mercado">${valor != null ? eur.format(valor) : '—'}</td>
+      <td class="c-num ${diaEur != null ? claseDe(diaEur) : ''}" data-label="PyG diarias">${diaEur != null ? eurFirmado(diaEur) : '—'}</td>
+      <td class="c-num ${noReal != null ? claseDe(noReal) : ''}" data-label="PyG no realizadas">${
+        noReal != null ? eurFirmado(noReal) + `<small>${pctFirmado(noRealPct)}</small>` : '—'}</td>
     </tr>`;
   }).join('');
 }
 
 function renderTotalesValores() {
-  let valor = 0, coste = 0, dia = 0, valorPrev = 0, hayAlgo = false, hayDia = false, conPrecio = 0;
+  let valor = 0, dia = 0, valorPrev = 0, hayAlgo = false, hayDia = false, conPrecio = 0;
+  const coste = POSICIONES.reduce((a, p) => a + p.coste, 0);   // siempre conocido
+
   POSICIONES.forEach(p => {
-    const s = estadoCartera[p.isin] || {};
-    coste += p.cost * p.qty;
+    const s = estadoCartera[p.ibkr] || {};
     if (typeof s.price === 'number') {
       valor += s.price * p.qty; hayAlgo = true; conPrecio++;
       if (typeof s.prevClose === 'number' && s.prevClose > 0) {
@@ -1201,24 +1246,40 @@ function renderTotalesValores() {
   const pg = valor - coste;
   const pgPct = coste ? (pg / coste) * 100 : 0;
   const diaPct = valorPrev ? (dia / valorPrev) * 100 : 0;
+  const parcial = conPrecio < POSICIONES.length;
 
   $("k-v-valor").textContent = hayAlgo ? eur.format(valor) : '—';
-  $("k-v-coste").textContent = 'coste ' + eur.format(coste);
-  $("k-v-n").textContent = `${conPrecio}/${POSICIONES.length}`;
-  $("k-v-n-s").textContent = conPrecio === POSICIONES.length ? 'todas con precio' : 'alguna sin precio';
-  $("n-valores").textContent = POSICIONES.length;
+  $("k-v-coste").textContent = eur.format(coste);
+  $("f-v-coste").textContent = eur.format(coste);
+  $("f-v-valor").textContent = hayAlgo ? eur.format(valor) : '—';
+  $("k-v-n").textContent = parcial
+    ? `${conPrecio} de ${POSICIONES.length} con precio — total incompleto`
+    : 'solo posiciones, sin efectivo';
 
-  const hoy = $("k-v-hoy"), hoyPct = $("k-v-hoy-pct");
+  const hoy = $("k-v-hoy"), hoyPct = $("k-v-hoy-pct"), fHoy = $("f-v-hoy");
   if (hayDia) {
-    hoy.textContent = eurFirmado(dia); hoy.className = 'kpi-val sm ' + claseDe(dia);
-    hoyPct.textContent = pctFirmado(diaPct); hoyPct.className = 'kpi-sub ' + claseDe(dia);
-  } else { hoy.textContent = '—'; hoy.className = 'kpi-val sm'; hoyPct.textContent = ''; }
+    hoy.textContent = eurFirmado(dia);  hoy.className = 'kpi-val sm ' + claseDe(dia);
+    hoyPct.textContent = pctFirmado(diaPct) + ' en la sesión';
+    hoyPct.className = 'kpi-sub ' + claseDe(dia);
+    fHoy.textContent = eurFirmado(dia); fHoy.className = 'c-num ' + claseDe(dia);
+  } else {
+    hoy.textContent = '—'; hoy.className = 'kpi-val sm';
+    hoyPct.textContent = 'variación de la sesión'; hoyPct.className = 'kpi-sub';
+    fHoy.textContent = '—'; fHoy.className = 'c-num';
+  }
 
-  const el = $("k-v-pg"), elPct = $("k-v-pg-pct");
+  const el = $("k-v-pg"), elPct = $("k-v-pg-pct"), fPg = $("f-v-pg");
   if (hayAlgo) {
-    el.textContent = eurFirmado(pg); el.className = 'kpi-val sm ' + claseDe(pg);
-    elPct.textContent = pctFirmado(pgPct); elPct.className = 'kpi-sub ' + claseDe(pg);
-  } else { el.textContent = '—'; el.className = 'kpi-val sm'; elPct.textContent = ''; }
+    el.textContent = eurFirmado(pg);   el.className = 'kpi-val sm ' + claseDe(pg);
+    elPct.textContent = pctFirmado(pgPct) + ' sobre el coste';
+    elPct.className = 'kpi-sub ' + claseDe(pg);
+    fPg.innerHTML = eurFirmado(pg) + `<small>${pctFirmado(pgPct)}</small>`;
+    fPg.className = 'c-num ' + claseDe(pg);
+  } else {
+    el.textContent = '—'; el.className = 'kpi-val sm'; elPct.textContent = '';
+    fPg.textContent = '—'; fPg.className = 'c-num';
+  }
+  $("n-valores").textContent = POSICIONES.length;
 }
 
 async function cargarCartera() {
@@ -1228,20 +1289,20 @@ async function cargarCartera() {
 
   // Se pinta primero lo guardado (arranque instantáneo aunque la red tarde)
   POSICIONES.forEach(p => {
-    if (!estadoCartera[p.isin] && cache[p.isin]) estadoCartera[p.isin] = { ...cache[p.isin], cached:true };
+    if (!estadoCartera[p.ibkr] && cache[p.ibkr]) estadoCartera[p.ibkr] = { ...cache[p.ibkr], cached:true };
   });
   renderFilasValores(); renderTotalesValores();
 
   let hechos = 0;
   await Promise.all(POSICIONES.map(async p => {
-    const q = await fetchQuoteYahoo(p.yahoo);
+    const q = await fetchQuoteYahoo([p.yahoo, p.alt]);
     if (q) {
-      estadoCartera[p.isin] = { ...q, cached:false, error:false };
-      cache[p.isin] = q;
-    } else if (cache[p.isin]) {
-      estadoCartera[p.isin] = { ...cache[p.isin], cached:true, error:true };
+      estadoCartera[p.ibkr] = { ...q, cached:false, error:false };
+      cache[p.ibkr] = q;
+    } else if (cache[p.ibkr]) {
+      estadoCartera[p.ibkr] = { ...cache[p.ibkr], cached:true, error:true };
     } else {
-      estadoCartera[p.isin] = { error:true };
+      estadoCartera[p.ibkr] = { error:true };
     }
     hechos++;
     setProgress("valores", `${hechos}/${POSICIONES.length} posiciones`);
@@ -1251,14 +1312,15 @@ async function cargarCartera() {
   almacen.guardar(cache);
   renderFilasValores(); renderTotalesValores();
 
-  const fallos = POSICIONES.filter(p => estadoCartera[p.isin]?.error).length;
+  const fallos = POSICIONES.filter(p => estadoCartera[p.ibkr]?.error).length;
   setProgress("valores", fallos ? `${POSICIONES.length} posiciones · ${fallos} sin datos` : `${POSICIONES.length} posiciones`);
   setBusy("valores", false);
 
   $("notas-valores").innerHTML = PROXY_YAHOO
-    ? `<span>🟢 <b>Punto verde:</b> precio reciente · <b style="color:#B4530A">ámbar</b>: último precio conocido, fuera del horario de Xetra o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato.</span>
-       <span>📉 Precios de Yahoo Finance con retardo de ~15 min, vía tu proxy. Todo en EUR, sin conversión de divisa: no incluye efectivo ni dividendos.</span>
-       <span>🔁 Se refresca solo cada ${REFRESCO_CARTERA_MIN} min mientras la pestaña esté abierta.</span>`
+    ? `<span>🎯 <b>Perímetro:</b> solo posiciones. Compara con la suma de la columna "Valor de mercado" de IBKR, no con el valor de la cuenta: ese incluye el efectivo y los dividendos pendientes.</span>
+       <span>🧾 <b>Base de coste y precio medio</b> salen de tu extracto de IBKR, con la comisión de compra ya dentro. MHL y VL9 reparten la base original de S&P Global tras la escisión de Mobility Global: 864,02 + 45,68 = 909,70 €.</span>
+       <span>🟢 <b>Punto verde:</b> precio reciente · <b style="color:#B4530A">ámbar</b>: último precio conocido, fuera del horario de Xetra o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato. Si aparece un símbolo en ámbar junto al nombre, el precio viene del mercado de respaldo, no del que cotiza IBKR.</span>
+       <span>📉 Precios de Yahoo Finance con retardo de ~15 min: puede haber unos céntimos de diferencia con el broker. Se refresca solo cada ${REFRESCO_CARTERA_MIN} min.</span>`
     : `<span class="warn">⚠ <b>Falta el proxy.</b> Pega la URL de tu Cloudflare Worker en <code>PROXY_YAHOO</code>, terminada en <code>?url=</code>.</span>`;
 }
 
