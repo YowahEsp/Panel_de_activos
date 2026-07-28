@@ -389,6 +389,64 @@ tfoot td.l {
 }
 .panel-gen .news { padding: 4px 16px 12px; }
 
+/* ── EDITOR DE POSICIONES ──────────────────────────────────────────────────
+   Aquí se teclean los datos del broker. No sale nada del navegador.        */
+.editor {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--cat); border-radius: 11px;
+  margin-bottom: 18px; overflow: hidden; box-shadow: var(--sombra2);
+}
+.editor-head {
+  padding: 12px 16px; background: var(--surf2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.editor-t {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 12.5px;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--cat);
+}
+.editor-sub { font-size: 12px; font-weight: 600; color: var(--muted); }
+.editor-body { padding: 14px 16px 16px; }
+.editor-ayuda { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; max-width: 78ch; }
+.editor textarea {
+  width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; color: var(--text); resize: vertical; line-height: 1.5;
+}
+.editor-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.editor-tabla { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.editor-tabla th {
+  padding: 7px 8px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--border); text-align: left; background: none;
+}
+.editor-tabla th.r { text-align: right; }
+.editor-tabla td { padding: 4px 4px; border-bottom: 1px solid var(--border); }
+.editor-tabla input {
+  width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  padding: 6px 8px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--text);
+}
+.editor-tabla input:hover { border-color: var(--border); }
+.editor-tabla input:focus { border-color: var(--cat); background: #fff; outline: none; }
+.editor-tabla input.num { text-align: right; }
+.editor-tabla input.mal { border-color: var(--neg); background: #FFF2F4; }
+.quitar {
+  border: none; background: none; cursor: pointer; color: var(--muted);
+  font-size: 16px; line-height: 1; padding: 4px 8px; border-radius: 6px;
+}
+.quitar:hover { background: #FFF2F4; color: #C31933; }
+.previo {
+  font-size: 12.5px; margin: 8px 0; padding: 10px 12px; border-radius: 8px;
+  background: var(--surf2); border: 1px solid var(--border); line-height: 1.6;
+}
+.previo b { font-family: 'JetBrains Mono', monospace; }
+.previo .ok  { color: #067A4A; font-weight: 700; }
+.previo .mal { color: #C31933; font-weight: 700; }
+.editor pre {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.5;
+  background: var(--chip); color: #C9D8E6; padding: 12px 14px; border-radius: 8px;
+  overflow-x: auto; margin-top: 10px; white-space: pre;
+}
+
 /* Ventanas intermedias: la cartera aprieta un poco para no tener que rodar */
 @media (min-width: 701px) and (max-width: 1200px) {
   #sec-valores table { font-size: 13px; }
@@ -446,6 +504,11 @@ tfoot td.l {
   tr.row-sep { display: block; margin: 4px 0 12px; }
   .row-sep td { display: block; text-align: center; border-radius: 9px; border: 1px solid var(--border); }
   .row-sep td::before { content: none; }
+
+  .editor-tabla td { padding: 7px 12px; }
+  .editor-tabla input { max-width: 60%; }
+  .editor-tabla input:not(.num) { text-align: right; }
+  .quitar { width: 100%; text-align: right; font-size: 12px; font-weight: 700; }
 
   tfoot { display: block; margin-top: 4px; }
   tfoot tr {
@@ -552,7 +615,35 @@ tfoot td.l {
       </div>
       <div class="sec-tools">
         <span class="progress" id="prog-valores"></span>
+        <button class="btn ghost" id="btn-editar">✎ Editar posiciones</button>
         <button class="btn ghost" id="btn-valores"><span class="spin" id="ico-valores">⟳</span> Actualizar cartera</button>
+      </div>
+    </div>
+
+    <div class="editor" id="editor-pos" hidden>
+      <div class="editor-head">
+        <span class="editor-t">Posiciones — lo que dice tu broker</span>
+        <span class="editor-sub" id="editor-estado"></span>
+      </div>
+      <div class="editor-body">
+        <p class="editor-ayuda">Copia la tabla «Sus participaciones» de IBKR y pégala tal cual, o escribe una línea por posición con <code>SÍMBOLO CANTIDAD BASE-DE-COSTE</code>. Se guarda en este navegador y nunca se envía a ningún sitio.</p>
+        <textarea id="pegar" rows="4" spellcheck="false" placeholder="PKA 6 1010,10&#10;DCO 2 893,80&#10;DSOL 55 1057,57"></textarea>
+        <div class="editor-btns"><button class="btn ghost" id="btn-leer">Leer lo pegado</button></div>
+        <div id="previo"></div>
+        <table class="editor-tabla">
+          <thead><tr>
+            <th>Símbolo IBKR</th><th>Símbolo Yahoo</th><th>Nombre</th>
+            <th class="r">Cantidad</th><th class="r">Base de coste €</th><th></th>
+          </tr></thead>
+          <tbody id="tb-editor"></tbody>
+        </table>
+        <div class="editor-btns">
+          <button class="btn" id="btn-guardar">Guardar y recalcular</button>
+          <button class="btn ghost" id="btn-anadir">+ Añadir posición</button>
+          <button class="btn ghost" id="btn-restaurar">Restaurar las del archivo</button>
+          <button class="btn ghost" id="btn-exportar">Copiar para el archivo</button>
+        </div>
+        <pre id="exportado" hidden></pre>
       </div>
     </div>
 
@@ -686,7 +777,7 @@ const FONDOS = [
        + 3,00 de comisión).
      · "yahoo" es la línea que cotiza IBKR; "alt" es el respaldo si esa falla.
    Orden: el mismo de IBKR (PyG no realizadas, de mayor a menor).             */
-const POSICIONES = [
+const POSICIONES_BASE = [
   { ibkr:'PKA',  yahoo:'PKA.DE',  alt:'PKA.F',   name:'Packaging Corp of America',  isin:'US6951561090', venue:'Xetra',     tipo:'Acción', qty:6,  coste:1010.10 },
   { ibkr:'DCO',  yahoo:'DCO.DE',  alt:'DCO.F',   name:'Deere & Co',                 isin:'US2441991054', venue:'Xetra',     tipo:'Acción', qty:2,  coste:893.80  },
   { ibkr:'WMT',  yahoo:'WMT.DE',  alt:'WMT.F',   name:'Walmart Inc',                isin:'US9311421039', venue:'Xetra',     tipo:'Acción', qty:10, coste:810.40  },
@@ -699,6 +790,12 @@ const POSICIONES = [
   { ibkr:'E6Z',  yahoo:'E6Z.DE',  alt:'E6Z.F',   name:'AECOM',                      isin:'US00766T1007', venue:'Xetra',     tipo:'Acción', qty:13, coste:1069.00 },
   { ibkr:'DSOL', yahoo:'SOLW.PA', alt:'DSOL.DE', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
 ];
+
+// Lo de arriba es la foto del extracto del 27/07/2026. Si editas las
+// posiciones en la app, mandan las guardadas en este navegador.
+const CLAVE_POS = 'panel_inversion_posiciones_v1';
+let POSICIONES = POSICIONES_BASE.map(p => ({ ...p }));
+let posEditadas = null;
 
 /* ── 3. MERCADO PRINCIPAL ──────────────────────────────────────────────────
    Panel de seguimiento, no cartera: aquí no hay cantidades ni coste (eso vive
@@ -1166,6 +1263,42 @@ function selloPrecio(ts) {
                      : _fechaES.format(new Date(ts)) + ' · ' + _horaES.format(new Date(ts));
 }
 
+// OJO: con un rango de varios días, meta.chartPreviousClose es el cierre
+// ANTERIOR A LA VENTANA, no el de ayer. Usarlo daba variaciones de la semana
+// disfrazadas de variación del día. El cierre bueno sale de las velas diarias:
+// la última que no sea la de hoy.
+function cierreAnterior(r) {
+  const ts = r.timestamp || [];
+  const cl = r.indicators?.quote?.[0]?.close || [];
+  const velas = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (typeof cl[i] === 'number') velas.push({ t: ts[i] * 1000, c: cl[i] });
+  }
+  if (velas.length) {
+    const ultima = velas[velas.length - 1];
+    // Si la última vela es la de hoy, el cierre anterior es la penúltima.
+    // Si hoy no hay vela, la última que hay YA es el cierre anterior.
+    if (esDeHoy(ultima.t)) return velas.length > 1 ? velas[velas.length - 2].c : null;
+    return ultima.c;
+  }
+  const m = r.meta || {};
+  return typeof m.previousClose === 'number' ? m.previousClose
+       : typeof m.chartPreviousClose === 'number' ? m.chartPreviousClose : null;
+}
+
+// El enlace entre tu posición y Yahoo es el ticker, no el ISIN: si un símbolo
+// apuntara a otro valor, las cifras saldrían mal con toda la pinta de estar
+// bien. Se compara el nombre que devuelve Yahoo con el que tú tienes puesto y
+// basta con que coincida una palabra larga. Si Yahoo no manda nombre, no avisa.
+function nombreCuadra(esperado, recibido) {
+  const limpia = t => (t || '').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ');
+  const palabras = limpia(esperado).split(/\s+/).filter(w => w.length >= 4);
+  const texto = limpia(recibido);
+  if (!palabras.length || !texto) return true;
+  return palabras.some(w => texto.includes(w));
+}
+
 async function pedirCotizacion(simbolo) {
   const envoltorios = PROXY_YAHOO
     ? [u => PROXY_YAHOO + encodeURIComponent(u)]
@@ -1178,14 +1311,16 @@ async function pedirCotizacion(simbolo) {
       try {
         const res = await fetch(envolver(destino), { cache:'no-store' });
         if (!res.ok) continue;
-        const m = JSON.parse(await res.text())?.chart?.result?.[0]?.meta;
+        const r = JSON.parse(await res.text())?.chart?.result?.[0];
+        const m = r?.meta;
         if (m && typeof m.regularMarketPrice === 'number') {
           return {
             price: m.regularMarketPrice,
             currency: m.currency || 'EUR',
-            prevClose: (typeof m.chartPreviousClose === 'number') ? m.chartPreviousClose
-                     : (typeof m.previousClose === 'number') ? m.previousClose : null,
+            prevClose: cierreAnterior(r),
             time: m.regularMarketTime ? m.regularMarketTime * 1000 : 0,
+            nombre: m.shortName || m.longName || '',
+            plaza: m.fullExchangeName || m.exchangeName || '',
             via: simbolo
           };
         }
@@ -1232,7 +1367,9 @@ function renderFilasValores() {
       (hay && s.currency && s.currency !== 'EUR'
         ? ` <span class="tag" style="color:var(--warn)" title="El proveedor devuelve ${esc(s.currency)}">⚠ ${esc(s.currency)}</span>` : '') +
       (hay && s.via && s.via !== p.yahoo
-        ? ` <span class="tag" title="Precio tomado de ${esc(s.via)}: tenía el cruce más reciente">${esc(s.via)}</span>` : '');
+        ? ` <span class="tag" title="Precio tomado de ${esc(s.via)}: tenía el cruce más reciente">${esc(s.via)}</span>` : '') +
+      (hay && s.nombre && !nombreCuadra(p.name, s.nombre)
+        ? ` <span class="tag" style="color:var(--neg)" title="${esc(s.via)} devuelve &quot;${esc(s.nombre)}&quot;, que no se parece a &quot;${esc(p.name)}&quot;. Revisa el símbolo.">⚠ ¿otro valor?</span>` : '');
 
     return `<tr class="row-data">
       <td class="c-name" data-label="Instrumento">
@@ -1350,6 +1487,8 @@ async function cargarCartera() {
        <span>🧾 <b>Base de coste y precio medio</b> salen de tu extracto de IBKR, con la comisión de compra ya dentro. MHL y VL9 reparten la base original de S&P Global tras la escisión de Mobility Global: 864,02 + 45,68 = 909,70 €.</span>
        <span>🟢 <b>Punto verde:</b> ha cruzado hoy · <b style="color:#B4530A">ámbar</b>: el último precio es de una sesión anterior, mercado cerrado o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato. Bajo cada precio va la hora del cruce.</span>
        <span>🕰️ <b>"Sin cruce hoy" no es un fallo.</b> Las líneas alemanas de valores estadounidenses son finas y hay sesiones en que PKA, UNP o E6Z no negocian en toda la mañana. IBKR sí les pone precio porque su feed usa la horquilla de compra-venta; aquí solo se muestran operaciones reales, así que esas filas se quedan quietas hasta que alguien cruce. Al cierre vuelven a cuadrar.</span>
+       <span>✎ <b>Editar posiciones</b> abre el panel donde pegas o tecleas lo que dice tu broker: cantidad y base de coste. Se guardan en este navegador, así que no hay que tocar el archivo cada vez que compres o vendas. «Copiar para el archivo» te da la línea de código si las quieres fijas.</span>
+       <span>🔍 <b>Se comprueba que cada símbolo apunte a lo que crees.</b> Si el nombre que devuelve Yahoo no se parece al tuyo, la fila lo avisa en rojo: es la única forma de cazar un ticker que apunte a otro valor.</span>
        <span>📉 Se consultan Xetra y Fráncfort y se toma el cruce más reciente. Precios de Yahoo con ~15 min de retardo: unos céntimos de diferencia con el broker son normales. Refresco automático cada ${REFRESCO_CARTERA_MIN} min.</span>`
     : `<span class="warn">⚠ <b>Falta el proxy.</b> Pega la URL de tu Cloudflare Worker en <code>PROXY_YAHOO</code>, terminada en <code>?url=</code>.</span>`;
 }
@@ -1763,6 +1902,197 @@ async function abrirGenerales() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   EDITOR DE POSICIONES
+   Los datos del broker se teclean o se pegan aquí una vez y se quedan en este
+   navegador. Ni salen a la red ni hacen falta credenciales de IBKR.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Acepta 1.010,10 y 1010.10 sin confundir el separador de miles con el decimal.
+function aNumero(t) {
+  if (t == null) return null;
+  let x = String(t).replace(/[^\d.,-]/g, '');
+  if (!x || x === '-') return null;
+  if (/,\d{1,6}$/.test(x)) x = x.replace(/\./g, '').replace(',', '.');
+  else if (/\.\d{3}(\D|$)/.test(x) && !/\.\d{1,2}$/.test(x)) x = x.replace(/\./g, '');
+  else x = x.replace(/,/g, '');
+  const n = parseFloat(x);
+  return isNaN(n) ? null : n;
+}
+
+function cargarPosicionesGuardadas() {
+  try {
+    const g = JSON.parse(localStorage.getItem(CLAVE_POS));
+    if (g && Array.isArray(g.posiciones) && g.posiciones.length) {
+      POSICIONES = g.posiciones.map(x => ({ ...x }));
+      posEditadas = g.fecha || null;
+    }
+  } catch (e) { /* sin almacén: se usan las del archivo */ }
+}
+function guardarPosiciones() {
+  posEditadas = new Date().toISOString();
+  try { localStorage.setItem(CLAVE_POS, JSON.stringify({ fecha: posEditadas, posiciones: POSICIONES })); } catch (e) {}
+}
+function olvidarPosiciones() {
+  try { localStorage.removeItem(CLAVE_POS); } catch (e) {}
+  POSICIONES = POSICIONES_BASE.map(x => ({ ...x }));
+  posEditadas = null;
+}
+
+function renderEditor() {
+  $("tb-editor").innerHTML = POSICIONES.map((p, i) => `
+    <tr class="row-data">
+      <td data-label="Símbolo IBKR"><input data-i="${i}" data-c="ibkr"  value="${esc(p.ibkr)}"  aria-label="Símbolo IBKR"></td>
+      <td data-label="Símbolo Yahoo"><input data-i="${i}" data-c="yahoo" value="${esc(p.yahoo)}" aria-label="Símbolo Yahoo"></td>
+      <td data-label="Nombre"><input data-i="${i}" data-c="name"  value="${esc(p.name)}"  aria-label="Nombre"></td>
+      <td data-label="Cantidad"><input data-i="${i}" data-c="qty"   value="${p.qty}"                 class="num" aria-label="Cantidad"></td>
+      <td data-label="Base de coste €"><input data-i="${i}" data-c="coste" value="${num2.format(p.coste)}"  class="num" aria-label="Base de coste"></td>
+      <td data-label=""><button class="quitar" data-quitar="${i}" title="Quitar esta posición" aria-label="Quitar">✕ Quitar</button></td>
+    </tr>`).join('');
+  $("editor-estado").textContent = posEditadas
+    ? 'Editadas el ' + new Date(posEditadas).toLocaleString('es-ES') + ', guardadas en este navegador'
+    : 'Tal y como vienen en el archivo (extracto del 27/07/2026)';
+}
+
+// Vuelca los campos del editor a POSICIONES. Devuelve false si algo no es un número.
+function volcarEditor() {
+  let bien = true;
+  const copia = POSICIONES.map(x => ({ ...x }));
+  $("tb-editor").querySelectorAll('input').forEach(inp => {
+    const i = +inp.dataset.i, c = inp.dataset.c;
+    if (!copia[i]) return;
+    if (c === 'qty' || c === 'coste') {
+      const n = aNumero(inp.value);
+      if (n == null || n < 0) { inp.classList.add('mal'); bien = false; return; }
+      inp.classList.remove('mal');
+      copia[i][c] = n;
+    } else {
+      copia[i][c] = inp.value.trim();
+    }
+  });
+  if (bien) POSICIONES = copia.filter(p => p.ibkr && p.yahoo);
+  return bien;
+}
+
+/* Lee lo pegado. Dos formatos:
+   1) corto — "PKA 6 1010,10", una línea por posición. Sirve también para altas.
+   2) volcado de la tabla "Sus participaciones" de IBKR, cuyas columnas van
+      posición · último · %var · base de coste · valor · precio medio · PyG.
+      Como el orden puede bailar, se comprueba que precio medio × posición dé
+      la base de coste: si cuadra, la lectura es buena; si no, se marca.        */
+function leerPegado(txt) {
+  const lineas = txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  const corto = [];
+  for (const l of lineas) {
+    const m = l.match(/^([A-Za-z0-9.\-]{1,10})[\s\t]+([\d.,]+)[\s\t]+([\d.,]+)\s*€?$/);
+    if (m) {
+      const q = aNumero(m[2]), c = aNumero(m[3]);
+      if (q != null && c != null) corto.push({ ibkr: m[1].toUpperCase(), qty: q, coste: c, fiable: true });
+    }
+  }
+  if (corto.length) return corto;
+
+  const conocidos = new Set([...POSICIONES, ...POSICIONES_BASE].map(p => p.ibkr));
+  const bloques = [];
+  let actual = null;
+  for (const t of lineas.flatMap(l => l.split(/[\t ]+/)).filter(Boolean)) {
+    if (conocidos.has(t.toUpperCase()) && !/^\d/.test(t)) { actual = { ibkr: t.toUpperCase(), nums: [] }; bloques.push(actual); continue; }
+    if (!actual) continue;
+    const n = aNumero(t);
+    if (n != null) actual.nums.push(n);
+  }
+
+  const alineaciones = [ { pos:0, base:3, medio:5 }, { pos:0, base:2, medio:4 } ];
+  return bloques.map(b => {
+    for (const a of alineaciones) {
+      const pos = b.nums[a.pos], base = b.nums[a.base], medio = b.nums[a.medio];
+      if (pos == null || base == null || medio == null) continue;
+      if (Math.abs(medio * pos - base) <= Math.max(1, base * 0.005)) {
+        return { ibkr: b.ibkr, qty: pos, coste: base, fiable: true };
+      }
+    }
+    return { ibkr: b.ibkr, qty: b.nums[0], coste: b.nums[3] ?? b.nums[2], fiable: false };
+  }).filter(f => f.qty != null && f.coste != null);
+}
+
+function pintarPrevio(filas) {
+  const caja = $("previo");
+  if (!filas.length) {
+    caja.innerHTML = '<div class="previo">No he reconocido ninguna posición ahí. Prueba con el formato corto, una línea por posición: <b>PKA 6 1010,10</b></div>';
+    return;
+  }
+  caja.innerHTML = '<div class="previo">' + filas.map(f =>
+    (f.fiable ? '<span class="ok">✓</span>' : '<span class="mal">⚠</span>') +
+    ` <b>${esc(f.ibkr)}</b> — ${f.qty} títulos, base ${eur.format(f.coste)}` +
+    (f.fiable ? '' : ' <span class="mal">— el precio medio no cuadra con la base, revísala a mano</span>')
+  ).join('<br>') + '<br><br>Ya está volcado abajo. Pulsa <b>Guardar y recalcular</b> para aplicarlo.</div>';
+}
+
+function aplicarPegado(filas) {
+  filas.forEach(f => {
+    const p = POSICIONES.find(x => x.ibkr === f.ibkr);
+    if (p) { p.qty = f.qty; p.coste = f.coste; }
+    else POSICIONES.push({ ibkr:f.ibkr, yahoo:'', alt:'', name:'', isin:'', venue:'', tipo:'Acción', qty:f.qty, coste:f.coste });
+  });
+  renderEditor();
+}
+
+function exportarPosiciones() {
+  const c = t => String(t || '').replace(/\\/g, '').replace(/'/g, "\\'");
+  const txt = 'const POSICIONES_BASE = [\n' + POSICIONES.map(p =>
+    `  { ibkr:'${c(p.ibkr)}', yahoo:'${c(p.yahoo)}', alt:'${c(p.alt)}', name:'${c(p.name)}', ` +
+    `isin:'${c(p.isin)}', venue:'${c(p.venue)}', tipo:'${c(p.tipo)}', qty:${p.qty}, coste:${p.coste} },`
+  ).join('\n') + '\n];';
+  const pre = $("exportado");
+  pre.textContent = txt; pre.hidden = false;
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).catch(() => {});
+}
+
+$("btn-editar").addEventListener('click', () => {
+  const ed = $("editor-pos");
+  ed.hidden = !ed.hidden;
+  if (!ed.hidden) renderEditor();
+});
+$("btn-leer").addEventListener('click', () => {
+  const filas = leerPegado($("pegar").value);
+  pintarPrevio(filas);
+  if (filas.length) aplicarPegado(filas);
+});
+$("btn-anadir").addEventListener('click', () => {
+  if (!volcarEditor()) return;
+  POSICIONES.push({ ibkr:'', yahoo:'', alt:'', name:'', isin:'', venue:'', tipo:'Acción', qty:0, coste:0 });
+  renderEditor();
+});
+$("tb-editor").addEventListener('click', e => {
+  const b = e.target.closest('[data-quitar]');
+  if (!b) return;
+  if (!volcarEditor()) return;
+  POSICIONES.splice(+b.dataset.quitar, 1);
+  renderEditor();
+});
+$("btn-guardar").addEventListener('click', () => {
+  if (!volcarEditor()) {
+    $("previo").innerHTML = '<div class="previo"><span class="mal">Hay cantidades o costes que no son números.</span> Están marcados en rojo.</div>';
+    return;
+  }
+  guardarPosiciones();
+  renderEditor();
+  $("previo").innerHTML = `<div class="previo"><span class="ok">✓ Guardado.</span> ${POSICIONES.length} posiciones. Pidiendo precios…</div>`;
+  renderFilasValores(); renderTotalesValores();
+  cargarCartera();
+});
+$("btn-restaurar").addEventListener('click', () => {
+  olvidarPosiciones();
+  renderEditor();
+  $("previo").innerHTML = '<div class="previo">Restauradas las del archivo.</div>';
+  renderFilasValores(); renderTotalesValores();
+  cargarCartera();
+});
+$("btn-exportar").addEventListener('click', () => {
+  if (volcarEditor()) exportarPosiciones();
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
    ARRANQUE
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -1785,6 +2115,7 @@ async function actualizarTodo() {
   b.disabled = false; i.className = "spin";
 }
 
+cargarPosicionesGuardadas();
 activarTab("fondos");
 $("n-fondos").textContent = FONDOS.filter(f => !f.separador).length;
 renderFilasMercado();
