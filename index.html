@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de inversión — Fondos · Valores · Mercado</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230E1E2E'/><rect x='6' y='8' width='20' height='4' rx='2' fill='%2312509B'/><rect x='6' y='14' width='20' height='4' rx='2' fill='%230B7A6E'/><rect x='6' y='20' width='20' height='4' rx='2' fill='%236D3FBF'/></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Syne:wght@700;800&family=DM+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ── TÍTULO ────────────────────────────────────────────────────────────────
@@ -14,10 +15,10 @@
 @font-face {
   font-family: 'Murisa Soraya';
   src: local('Murisa Soraya'),
-       local('MurisaSoraya'),
-       url('fuentes/MurisaSoraya.woff2') format('woff2'),
-       url('fuentes/MurisaSoraya.otf')   format('opentype'),
-       url('fuentes/MurisaSoraya.ttf')   format('truetype');
+       local('MurisaSoraya');
+  /* Si algún día pones el archivo junto a este HTML, añade aquí:
+       , url('fuentes/MurisaSoraya.woff2') format('woff2')
+     Mientras no esté, pedirlo solo generaba tres 404 en cada carga. */
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -776,6 +777,9 @@ const FONDOS = [
        Mobility Global del 01/07/2026: 864,02 + 45,68 = 909,70 € (2 × 453,35
        + 3,00 de comisión).
      · "yahoo" es la línea que cotiza IBKR; "alt" es el respaldo si esa falla.
+     MWOW, VL9 y DSOL van sin respaldo: Yahoo no tiene MWOW.F, VL9.DE ni
+     DSOL.DE y cada intento era un 404 en cada refresco. Si algún día
+     aparecen, basta con volver a escribirlos ahí.
    Orden: el mismo de IBKR (PyG no realizadas, de mayor a menor).             */
 const POSICIONES_BASE = [
   { ibkr:'PKA',  yahoo:'PKA.DE',  alt:'PKA.F',   name:'Packaging Corp of America',  isin:'US6951561090', venue:'Xetra',     tipo:'Acción', qty:6,  coste:1010.10 },
@@ -783,12 +787,12 @@ const POSICIONES_BASE = [
   { ibkr:'WMT',  yahoo:'WMT.DE',  alt:'WMT.F',   name:'Walmart Inc',                isin:'US9311421039', venue:'Xetra',     tipo:'Acción', qty:10, coste:810.40  },
   { ibkr:'BRYN', yahoo:'BRYN.DE', alt:'BRYN.F',  name:'Berkshire Hathaway Inc CL B',isin:'US0846707026', venue:'Xetra',     tipo:'Acción', qty:2,  coste:823.00  },
   { ibkr:'UNP',  yahoo:'UNP.DE',  alt:'UNP.F',   name:'Union Pacific Corp',         isin:'US9078181081', venue:'Xetra',     tipo:'Acción', qty:4,  coste:1002.60 },
-  { ibkr:'MWOW', yahoo:'MWOW.DE', alt:'MWOW.F',  name:'Amundi Rusl 1000 G UCITS ETF',isin:'IE0005E8B9S4',venue:'Xetra',     tipo:'ETF',    qty:2,  coste:1003.60 },
+  { ibkr:'MWOW', yahoo:'MWOW.DE', alt:'',         name:'Amundi Rusl 1000 G UCITS ETF',isin:'IE0005E8B9S4',venue:'Xetra',     tipo:'ETF',    qty:2,  coste:1003.60 },
   { ibkr:'UU2',  yahoo:'UU2.DE',  alt:'UU2.F',   name:'BlackRock Inc',              isin:'US09290D1019', venue:'Xetra',     tipo:'Acción', qty:1,  coste:911.60  },
-  { ibkr:'VL9',  yahoo:'VL9.F',   alt:'VL9.DE',  name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.68   },
+  { ibkr:'VL9',  yahoo:'VL9.F',   alt:'',         name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.68   },
   { ibkr:'MHL',  yahoo:'MHL.F',   alt:'MHL.DE',  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.02  },
   { ibkr:'E6Z',  yahoo:'E6Z.DE',  alt:'E6Z.F',   name:'AECOM',                      isin:'US00766T1007', venue:'Xetra',     tipo:'Acción', qty:13, coste:1069.00 },
-  { ibkr:'DSOL', yahoo:'SOLW.PA', alt:'DSOL.DE', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
+  { ibkr:'DSOL', yahoo:'SOLW.PA', alt:'',        name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
 ];
 
 // Lo de arriba es la foto del extracto del 27/07/2026. Si editas las
@@ -1299,7 +1303,13 @@ function nombreCuadra(esperado, recibido) {
   return palabras.some(w => texto.includes(w));
 }
 
+// Símbolos que Yahoo no reconoce. Se apuntan al vuelo para no volver a
+// pedirlos durante esta sesión; al recargar se vuelven a probar por si acaso.
+const simbolosMuertos = new Set();
+
 async function pedirCotizacion(simbolo) {
+  if (simbolosMuertos.has(simbolo)) return null;
+  let cuatrocientosCuatro = 0, intentos = 0;
   const envoltorios = PROXY_YAHOO
     ? [u => PROXY_YAHOO + encodeURIComponent(u)]
     : [u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
@@ -1309,7 +1319,9 @@ async function pedirCotizacion(simbolo) {
     const destino = `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(simbolo)}?interval=1d&range=5d`;
     for (const envolver of envoltorios) {
       try {
+        intentos++;
         const res = await fetch(envolver(destino), { cache:'no-store' });
+        if (res.status === 404) { cuatrocientosCuatro++; break; }   // no hay tal valor
         if (!res.ok) continue;
         const r = JSON.parse(await res.text())?.chart?.result?.[0];
         const m = r?.meta;
@@ -1327,6 +1339,8 @@ async function pedirCotizacion(simbolo) {
       } catch (e) { /* siguiente proxy */ }
     }
   }
+  // Si todos los intentos han sido 404, el símbolo no existe: se deja de pedir.
+  if (intentos && cuatrocientosCuatro === intentos) simbolosMuertos.add(simbolo);
   return null;
 }
 
