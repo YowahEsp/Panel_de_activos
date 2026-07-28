@@ -244,6 +244,9 @@ tr:last-child td { border-bottom: none; }
 .c-nav   { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .c-num   { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .c-num small { display: block; font-size: 11px; font-weight: 600; opacity: .72; margin-top: 1px; }
+.c-nav small { display: block; font-size: 10.5px; font-weight: 600; opacity: .55; margin-top: 1px; }
+.c-nav small.viejo { color: var(--warn); opacity: .9; }
+.pill.neu { font-size: 12px; }
 /* La cartera lleva nueve columnas: se ajusta el aire para que quepan */
 #sec-valores th, #sec-valores td { padding-left: 11px; padding-right: 11px; }
 #sec-valores .c-name { max-width: 250px; }
@@ -646,7 +649,6 @@ const PROXY_NEWS   = "https://cartera-noticias.esperance.workers.dev/?url=";
 const FINNHUB_KEY  = "d2s66m1r01qiq7a2qqhgd2s66m1r01qiq7a2qqi0";
 
 const REFRESCO_CARTERA_MIN = 10;   // refresco automático de la cartera
-const STALE_MIN            = 20;   // a partir de aquí el punto pasa a ámbar
 const CACHE_KEY            = "panel_inversion_cache_v2";
 
 /* ── 1. FONDOS ─────────────────────────────────────────────────────────────── */
@@ -695,7 +697,7 @@ const POSICIONES = [
   { ibkr:'VL9',  yahoo:'VL9.F',   alt:'VL9.DE',  name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.68   },
   { ibkr:'MHL',  yahoo:'MHL.F',   alt:'MHL.DE',  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.02  },
   { ibkr:'E6Z',  yahoo:'E6Z.DE',  alt:'E6Z.F',   name:'AECOM',                      isin:'US00766T1007', venue:'Xetra',     tipo:'Acción', qty:13, coste:1069.00 },
-  { ibkr:'DSOL', yahoo:'DSOL.DE', alt:'SOLW.PA', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
+  { ibkr:'DSOL', yahoo:'SOLW.PA', alt:'DSOL.DE', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
 ];
 
 /* ── 3. MERCADO PRINCIPAL ──────────────────────────────────────────────────
@@ -712,7 +714,7 @@ const MERCADO = [
   { symbol:'WMT',   name:'Walmart',                   tipo:'stock',  equiv:'WMT.DE'  },
   { symbol:'IWF',   name:'iShares Russell 1000 Growth', tipo:'stock', equiv:'MWOW.DE', nota:'ETF que replica el índice RLG' },
   { symbol:'UNP',   name:'Union Pacific',             tipo:'stock',  equiv:'UNP.DE', nota:'Fusión con Norfolk Southern en revisión de la STB' },
-  { symbol:'solana', name:'Solana',                   tipo:'crypto', market:'usd', equiv:'DSOL.DE', nota:'Subyacente de tu ETN DSOL' },
+  { symbol:'solana', name:'Solana',                   tipo:'crypto', market:'usd', equiv:'SOLW.PA', nota:'Subyacente de tu ETN DSOL' },
 ];
 
 /* ── UTILIDADES COMPARTIDAS ────────────────────────────────────────────────── */
@@ -1151,37 +1153,56 @@ async function cargarFondos() {
 
 const estadoCartera = {};   // símbolo IBKR -> { price, currency, prevClose, time, cached, error, via }
 
-// Prueba el símbolo de la línea que cotiza IBKR y, si esa no responde, el
-// respaldo. Devuelve también por cuál entró, para poder avisar en la fila.
-async function fetchQuoteYahoo(simbolos) {
+// ¿El sello del precio es de la sesión de hoy? Xetra y Fráncfort van en la
+// misma zona horaria que Madrid, así que basta comparar el día natural.
+const _fechaES = new Intl.DateTimeFormat('es-ES', { timeZone:'Europe/Madrid', day:'2-digit', month:'2-digit' });
+const _horaES  = new Intl.DateTimeFormat('es-ES', { timeZone:'Europe/Madrid', hour:'2-digit', minute:'2-digit' });
+function esDeHoy(ts) {
+  return !!ts && _fechaES.format(new Date(ts)) === _fechaES.format(new Date());
+}
+function selloPrecio(ts) {
+  if (!ts) return '';
+  return esDeHoy(ts) ? _horaES.format(new Date(ts))
+                     : _fechaES.format(new Date(ts)) + ' · ' + _horaES.format(new Date(ts));
+}
+
+async function pedirCotizacion(simbolo) {
   const envoltorios = PROXY_YAHOO
     ? [u => PROXY_YAHOO + encodeURIComponent(u)]
     : [u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
        u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`];
 
-  for (const simbolo of simbolos.filter(Boolean)) {
-    for (const host of ['query1', 'query2']) {
-      const destino = `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(simbolo)}?interval=1d&range=1d`;
-      for (const envolver of envoltorios) {
-        try {
-          const res = await fetch(envolver(destino), { cache:'no-store' });
-          if (!res.ok) continue;
-          const m = JSON.parse(await res.text())?.chart?.result?.[0]?.meta;
-          if (m && typeof m.regularMarketPrice === 'number') {
-            return {
-              price: m.regularMarketPrice,
-              currency: m.currency || 'EUR',
-              prevClose: (typeof m.chartPreviousClose === 'number') ? m.chartPreviousClose
-                       : (typeof m.previousClose === 'number') ? m.previousClose : null,
-              time: m.regularMarketTime ? m.regularMarketTime * 1000 : Date.now(),
-              via: simbolo
-            };
-          }
-        } catch (e) { /* siguiente proxy */ }
-      }
+  for (const host of ['query1', 'query2']) {
+    const destino = `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(simbolo)}?interval=1d&range=5d`;
+    for (const envolver of envoltorios) {
+      try {
+        const res = await fetch(envolver(destino), { cache:'no-store' });
+        if (!res.ok) continue;
+        const m = JSON.parse(await res.text())?.chart?.result?.[0]?.meta;
+        if (m && typeof m.regularMarketPrice === 'number') {
+          return {
+            price: m.regularMarketPrice,
+            currency: m.currency || 'EUR',
+            prevClose: (typeof m.chartPreviousClose === 'number') ? m.chartPreviousClose
+                     : (typeof m.previousClose === 'number') ? m.previousClose : null,
+            time: m.regularMarketTime ? m.regularMarketTime * 1000 : 0,
+            via: simbolo
+          };
+        }
+      } catch (e) { /* siguiente proxy */ }
     }
   }
   return null;
+}
+
+// Las líneas alemanas de valores estadounidenses son finas: hay mañanas en que
+// Xetra no cruza ni una operación mientras Fráncfort sí. Se piden las dos y se
+// queda la del print más reciente, que es la que más se acerca al broker.
+async function fetchQuoteYahoo(simbolos) {
+  const respuestas = (await Promise.all(simbolos.filter(Boolean).map(pedirCotizacion))).filter(Boolean);
+  if (!respuestas.length) return null;
+  respuestas.sort((a, b) => (b.time || 0) - (a.time || 0));
+  return respuestas[0];
 }
 
 function renderFilasValores() {
@@ -1193,22 +1214,25 @@ function renderFilasValores() {
     const noReal = hay ? valor - p.coste : null;      // = "PyG no realizadas"
     const noRealPct = hay ? (noReal / p.coste) * 100 : null;
 
+    // Si el último print no es de hoy, la variación del día no existe: sería
+    // un 0,00 % falso. Se dice lo que pasa en vez de fingir una sesión plana.
+    const fresco = hay && esDeHoy(s.time) && !s.cached;
     const prev = s.prevClose;
-    const hayDia = hay && typeof prev === 'number' && prev > 0;
+    const hayDia = fresco && typeof prev === 'number' && prev > 0;
     const diaEur = hayDia ? (s.price - prev) * p.qty : null;   // = "PyG diarias"
     const diaPct = hayDia ? ((s.price - prev) / prev) * 100 : null;
 
-    let punto = 'err', titulo = 'Sin precio: revisa el proxy o el símbolo';
-    if (hay) {
-      const edad = Date.now() - (s.time || 0);
-      if (s.cached || s.error || edad > STALE_MIN * 60000) { punto = 'stale'; titulo = 'Último precio conocido, no reciente'; }
-      else { punto = 'live'; titulo = 'Precio reciente de ' + (s.via || p.yahoo); }
-    }
+    let punto, titulo;
+    if (!hay)          { punto = 'err';   titulo = 'Sin precio: revisa el proxy o el símbolo'; }
+    else if (s.cached) { punto = 'stale'; titulo = 'Precio guardado de una sesión anterior'; }
+    else if (!fresco)  { punto = 'stale'; titulo = 'Sin operaciones hoy en su mercado: precio del último cruce'; }
+    else               { punto = 'live';  titulo = 'Cruzado hoy a las ' + selloPrecio(s.time) + ' en ' + s.via; }
+
     const avisos =
       (hay && s.currency && s.currency !== 'EUR'
         ? ` <span class="tag" style="color:var(--warn)" title="El proveedor devuelve ${esc(s.currency)}">⚠ ${esc(s.currency)}</span>` : '') +
       (hay && s.via && s.via !== p.yahoo
-        ? ` <span class="tag" style="color:var(--warn)" title="La línea de IBKR no respondió; precio tomado de ${esc(s.via)}">⚠ ${esc(s.via)}</span>` : '');
+        ? ` <span class="tag" title="Precio tomado de ${esc(s.via)}: tenía el cruce más reciente">${esc(s.via)}</span>` : '');
 
     return `<tr class="row-data">
       <td class="c-name" data-label="Instrumento">
@@ -1216,8 +1240,12 @@ function renderFilasValores() {
         <small>${esc(p.name)} · ${esc(p.isin)} · ${esc(p.venue)}</small>
       </td>
       <td class="c-num" data-label="Posición">${p.qty}</td>
-      <td class="c-nav" data-label="Último">${hay ? eur.format(s.price) : '<span class="sh">…</span>'}</td>
-      <td class="c-pct" data-label="% Variación">${diaPct != null ? pill(diaPct) : '<span class="pill neu">—</span>'}</td>
+      <td class="c-nav" data-label="Último">${hay ? eur.format(s.price) : '<span class="sh">…</span>'}${
+        hay && s.time ? `<small class="${fresco ? '' : 'viejo'}">${selloPrecio(s.time)}</small>` : ''}</td>
+      <td class="c-pct" data-label="% Variación">${
+        diaPct != null ? pill(diaPct)
+        : hay ? '<span class="pill neu">sin cruce hoy</span>'
+        : '<span class="pill neu">—</span>'}</td>
       <td class="c-num" data-label="Precio medio">${eur.format(medio)}</td>
       <td class="c-num" data-label="Base de coste">${eur.format(p.coste)}</td>
       <td class="c-nav" data-label="Valor de mercado">${valor != null ? eur.format(valor) : '—'}</td>
@@ -1229,17 +1257,17 @@ function renderFilasValores() {
 }
 
 function renderTotalesValores() {
-  let valor = 0, dia = 0, valorPrev = 0, hayAlgo = false, hayDia = false, conPrecio = 0;
+  let valor = 0, dia = 0, valorPrev = 0, hayAlgo = false, hayDia = false, conPrecio = 0, conCruceHoy = 0;
   const coste = POSICIONES.reduce((a, p) => a + p.coste, 0);   // siempre conocido
 
   POSICIONES.forEach(p => {
     const s = estadoCartera[p.ibkr] || {};
     if (typeof s.price === 'number') {
       valor += s.price * p.qty; hayAlgo = true; conPrecio++;
-      if (typeof s.prevClose === 'number' && s.prevClose > 0) {
+      if (esDeHoy(s.time) && !s.cached && typeof s.prevClose === 'number' && s.prevClose > 0) {
         dia += (s.price - s.prevClose) * p.qty;
         valorPrev += s.prevClose * p.qty;
-        hayDia = true;
+        hayDia = true; conCruceHoy++;
       }
     }
   });
@@ -1259,7 +1287,8 @@ function renderTotalesValores() {
   const hoy = $("k-v-hoy"), hoyPct = $("k-v-hoy-pct"), fHoy = $("f-v-hoy");
   if (hayDia) {
     hoy.textContent = eurFirmado(dia);  hoy.className = 'kpi-val sm ' + claseDe(dia);
-    hoyPct.textContent = pctFirmado(diaPct) + ' en la sesión';
+    hoyPct.textContent = pctFirmado(diaPct) + (conCruceHoy < POSICIONES.length
+      ? ` · solo ${conCruceHoy} de ${POSICIONES.length} han cruzado hoy` : ' en la sesión');
     hoyPct.className = 'kpi-sub ' + claseDe(dia);
     fHoy.textContent = eurFirmado(dia); fHoy.className = 'c-num ' + claseDe(dia);
   } else {
@@ -1319,8 +1348,9 @@ async function cargarCartera() {
   $("notas-valores").innerHTML = PROXY_YAHOO
     ? `<span>🎯 <b>Perímetro:</b> solo posiciones. Compara con la suma de la columna "Valor de mercado" de IBKR, no con el valor de la cuenta: ese incluye el efectivo y los dividendos pendientes.</span>
        <span>🧾 <b>Base de coste y precio medio</b> salen de tu extracto de IBKR, con la comisión de compra ya dentro. MHL y VL9 reparten la base original de S&P Global tras la escisión de Mobility Global: 864,02 + 45,68 = 909,70 €.</span>
-       <span>🟢 <b>Punto verde:</b> precio reciente · <b style="color:#B4530A">ámbar</b>: último precio conocido, fuera del horario de Xetra o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato. Si aparece un símbolo en ámbar junto al nombre, el precio viene del mercado de respaldo, no del que cotiza IBKR.</span>
-       <span>📉 Precios de Yahoo Finance con retardo de ~15 min: puede haber unos céntimos de diferencia con el broker. Se refresca solo cada ${REFRESCO_CARTERA_MIN} min.</span>`
+       <span>🟢 <b>Punto verde:</b> ha cruzado hoy · <b style="color:#B4530A">ámbar</b>: el último precio es de una sesión anterior, mercado cerrado o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato. Bajo cada precio va la hora del cruce.</span>
+       <span>🕰️ <b>"Sin cruce hoy" no es un fallo.</b> Las líneas alemanas de valores estadounidenses son finas y hay sesiones en que PKA, UNP o E6Z no negocian en toda la mañana. IBKR sí les pone precio porque su feed usa la horquilla de compra-venta; aquí solo se muestran operaciones reales, así que esas filas se quedan quietas hasta que alguien cruce. Al cierre vuelven a cuadrar.</span>
+       <span>📉 Se consultan Xetra y Fráncfort y se toma el cruce más reciente. Precios de Yahoo con ~15 min de retardo: unos céntimos de diferencia con el broker son normales. Refresco automático cada ${REFRESCO_CARTERA_MIN} min.</span>`
     : `<span class="warn">⚠ <b>Falta el proxy.</b> Pega la URL de tu Cloudflare Worker en <code>PROXY_YAHOO</code>, terminada en <code>?url=</code>.</span>`;
 }
 
@@ -1424,7 +1454,7 @@ function resumenMercado() {
 
 /* Como mucho un recálculo por segundo, aunque lleguen veinte ticks. */
 const resumenMercadoLento = throttle(() => resumenMercado(), 1000);
-const selloDirecto = throttle(() => setStamp('En directo · ' + new Date().toLocaleTimeString('es-ES')), 1000);
+const selloDirecto = throttle(() => setStamp('Mercado principal en directo · ' + new Date().toLocaleTimeString('es-ES')), 1000);
 
 /* ── HORARIO EXTENDIDO (pre y post mercado) ────────────────────────────────
    Fuente: endpoint chart de Yahoo con includePrePost=true, vía el Worker de
