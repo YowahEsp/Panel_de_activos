@@ -900,21 +900,17 @@ TABS.forEach((t, i) => {
    BLOQUE 1 · FONDOS DE INVERSIÓN
    ═══════════════════════════════════════════════════════════════════════════ */
 
-// Estado real a jun-2026: de los proxies públicos solo corsproxy.io responde con
-// CORS válido, y SOLO desde *.github.io. La vía robusta —y la única que funciona
-// desde Codeberg— es el proxy propio, que va siempre primero.
+// Estado real a oct-2026: corsproxy.io ya exige API key (401 a todo) y se ha
+// quitado. La vía robusta —y la única que funciona desde Codeberg— es el proxy
+// propio, que va siempre primero.
 const _PROPIO = PROXY_FONDOS
   ? [{ name:"propio", json:false, url: u => PROXY_FONDOS + encodeURIComponent(u) }] : [];
-const _CORSPROXY = { name:"corsproxy", json:false, url: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` };
 const _BASE = [   // respaldos públicos: hoy casi todos rotos, se dejan por si reviven
+  { name:"allo-json",  json:true,  url: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}` },
   { name:"codetabs",   json:false, url: u => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` },
   { name:"allorigins", json:false, url: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
   { name:"x2u",        json:false, url: u => `https://cors.x2u.in/${u}` },
-  { name:"allo-json",  json:true,  url: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}` },
 ];
-const _H = location.hostname;
-const _CORSPROXY_OK = /(^|\.)github\.io$/i.test(_H) || _H === "localhost" || _H === "127.0.0.1";
-const PROXIES = [ ..._PROPIO, ...(_CORSPROXY_OK ? [_CORSPROXY] : []), ..._BASE ];
 const HAY_PROPIO = _PROPIO.length > 0;
 
 // Detecta respuestas-basura: muros anti-bot, captchas, avisos de rate-limit o
@@ -929,20 +925,52 @@ function pareceValido(html) {
   return !trampas.some(t => cab.includes(t));
 }
 
+/* Una petición a un proxy. Lanza un error con el motivo si no sirve. */
+async function pedirHTML(px, url, ms) {
+  let r;
+  try { r = await fetch(px.url(url), { signal: AbortSignal.timeout(ms) }); }
+  catch (_) { throw new Error(px.name + " (timeout/red)"); }
+  if (!r.ok) throw new Error(px.name + " HTTP " + r.status);
+  const html = px.json ? ((await r.json().catch(() => null))?.contents || "") : await r.text();
+  if (!pareceValido(html)) throw new Error(px.name + " (bloqueo/anti-bot)");
+  return html;
+}
+
+/* Proxy propio con peticiones de cobertura. FT a veces deja colgada una
+   petición del Worker sin contestar, sobre todo en la ráfaga del arranque
+   (fondos + cartera + mercado a la vez). Antes eso costaba 15 s de espera y
+   luego otros 15 s por cada proxy público muerto: casi un minuto para acabar
+   en error. Ahora, si a los 4 s no hay respuesta, sale otra petición en
+   paralelo (y una tercera a los 9 s) y gana la primera que llegue. */
+async function viaPropio(url) {
+  const px = _PROPIO[0];
+  let ganado = false;
+  const lanzar = async retardo => {
+    if (retardo) await sleep(retardo);
+    if (ganado) throw new Error("innecesaria");
+    const html = await pedirHTML(px, url, 12000);
+    ganado = true;
+    return html;
+  };
+  try { return await Promise.any([0, 4000, 9000].map(lanzar)); }
+  catch (agg) {
+    const motivos = (agg.errors || []).map(e => e.message).filter(m => m !== "innecesaria");
+    throw new Error(motivos[motivos.length - 1] || "propio (sin respuesta)");
+  }
+}
+
 async function fetchHTML(url, startIdx = 0) {
-  const n = PROXIES.length;
   let ultimoFallo = "sin respuesta de ningún proxy";
+  if (HAY_PROPIO) {
+    try { return await viaPropio(url); }
+    catch (e) { ultimoFallo = e.message; }
+  }
+  // Respaldos públicos: plazo corto, que casi todos están caídos.
+  const n = _BASE.length;
   for (let k = 0; k < n; k++) {
-    const px = PROXIES[(startIdx + k) % n];
-    try {
-      const r = await fetch(px.url(url), { signal: AbortSignal.timeout(15000) });
-      if (!r.ok) { ultimoFallo = px.name + " HTTP " + r.status; continue; }
-      let html = "";
-      if (px.json) { const d = await r.json(); html = (d && d.contents) ? d.contents : ""; }
-      else { html = await r.text(); }
-      if (pareceValido(html)) return html;
-      ultimoFallo = px.name + " (bloqueo/anti-bot)";
-    } catch (_) { ultimoFallo = px.name + " (timeout/red)"; }
+    const px = _BASE[(startIdx + k) % n];
+    try { return await pedirHTML(px, url, 8000); }
+    catch (e) { ultimoFallo = e.message; }
   }
   const e = new Error("BLOQUEO"); e.detalle = ultimoFallo; throw e;
 }
@@ -1219,7 +1247,7 @@ async function cargarFondos() {
       const { f, i } = pend[cursor++];
       await sleep(150 + Math.random() * 250);
       try {
-        const start  = HAY_PROPIO ? 0 : (i % PROXIES.length);
+        const start  = HAY_PROPIO ? 0 : (i % _BASE.length);
         const html   = await fetchHTML(f.url, start);
         const parser = getParser(f.url);
         const result = parser ? parser(html, f.url) : null;
