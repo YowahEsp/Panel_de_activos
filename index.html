@@ -936,23 +936,31 @@ async function pedirHTML(px, url, ms) {
   return html;
 }
 
-/* Proxy propio con peticiones de cobertura. FT a veces deja colgada una
-   petición del Worker sin contestar, sobre todo en la ráfaga del arranque
-   (fondos + cartera + mercado a la vez). Antes eso costaba 15 s de espera y
-   luego otros 15 s por cada proxy público muerto: casi un minuto para acabar
-   en error. Ahora, si a los 4 s no hay respuesta, sale otra petición en
-   paralelo (y una tercera a los 9 s) y gana la primera que llegue. */
+/* Proxy propio con peticiones de cobertura.
+   FT (oct-2026): cuando la ficha no está en la caché de Cloudflare, más o
+   menos la mitad de las conexiones del Worker a FT se quedan colgadas y
+   mueren con un 522 a los 20-40 s; las que conectan responden en ~1,5 s.
+   Por eso, si una petición no contesta en 3 s, sale otra en paralelo, y así
+   hasta cinco; gana la primera que llegue.
+   Cada reintento lleva un parámetro distinto (&_r=1, &_r=2…) que FT ignora:
+   con la misma URL, Cloudflare junta las peticiones repetidas en la misma
+   conexión colgada y los reintentos no servían de nada. */
+const ESCALONES = [0, 3000, 6000, 10000, 15000];
+function variante(url, k) {
+  if (!k || !url.includes("markets.ft.com")) return url;
+  return url + (url.includes("?") ? "&" : "?") + "_r=" + k;
+}
 async function viaPropio(url) {
   const px = _PROPIO[0];
   let ganado = false;
-  const lanzar = async retardo => {
+  const lanzar = async (retardo, k) => {
     if (retardo) await sleep(retardo);
     if (ganado) throw new Error("innecesaria");
-    const html = await pedirHTML(px, url, 12000);
+    const html = await pedirHTML(px, variante(url, k), 14000);
     ganado = true;
     return html;
   };
-  try { return await Promise.any([0, 4000, 9000].map(lanzar)); }
+  try { return await Promise.any(ESCALONES.map(lanzar)); }
   catch (agg) {
     const motivos = (agg.errors || []).map(e => e.message).filter(m => m !== "innecesaria");
     throw new Error(motivos[motivos.length - 1] || "propio (sin respuesta)");
