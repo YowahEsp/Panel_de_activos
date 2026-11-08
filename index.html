@@ -774,29 +774,37 @@ const FONDOS = [
        ya dentro. El precio medio se deriva de ella, así el total cuadra al
        céntimo con el broker en vez de arrastrar redondeos.
      · MHL y VL9 reparten la base original de S&P Global tras la escisión de
-       Mobility Global del 01/07/2026: 864,02 + 45,68 = 909,70 € (2 × 453,35
-       + 3,00 de comisión).
-     · "yahoo" es la línea que cotiza IBKR; "alt" es el respaldo si esa falla.
-     MWOW, VL9 y DSOL van sin respaldo: Yahoo no tiene MWOW.F, VL9.DE ni
-     DSOL.DE y cada intento era un 404 en cada refresco. Si algún día
-     aparecen, basta con volver a escribirlos ahí.
+       Mobility Global del 01/07/2026: 864,015084 + 45,684916 = 909,70 €
+       (2 × 453,35 + 3,00 de comisión). Van con todos los decimales de IBKR
+       para que la PyG cuadre al céntimo.
+     · "yahoo" es la línea con la que IBKR valora la posición (su cierre es el
+       del extracto); "alt" es el respaldo cuando esa línea aún no ha cruzado.
+     MWOW y VL9 van sin respaldo: Yahoo no tiene MWOW.F ni VL9.DE y cada
+     intento era un 404 en cada refresco. Si algún día aparecen, basta con
+     volver a escribirlos ahí.
+     DSOL: IBKR lo cotiza en Borsa Italiana (BVME.ETF), así que va primero la
+     línea de Milán y París queda de respaldo.
    Orden: el mismo de IBKR (PyG no realizadas, de mayor a menor).             */
 const POSICIONES_BASE = [
   { ibkr:'PKA',  yahoo:'PKA.DE',  alt:'PKA.F',   name:'Packaging Corp of America',  isin:'US6951561090', venue:'Xetra',     tipo:'Acción', qty:6,  coste:1010.10 },
-  { ibkr:'DCO',  yahoo:'DCO.DE',  alt:'DCO.F',   name:'Deere & Co',                 isin:'US2441991054', venue:'Xetra',     tipo:'Acción', qty:2,  coste:893.80  },
   { ibkr:'WMT',  yahoo:'WMT.DE',  alt:'WMT.F',   name:'Walmart Inc',                isin:'US9311421039', venue:'Xetra',     tipo:'Acción', qty:10, coste:810.40  },
+  { ibkr:'DCO',  yahoo:'DCO.DE',  alt:'DCO.F',   name:'Deere & Co',                 isin:'US2441991054', venue:'Xetra',     tipo:'Acción', qty:2,  coste:893.80  },
   { ibkr:'BRYN', yahoo:'BRYN.DE', alt:'BRYN.F',  name:'Berkshire Hathaway Inc CL B',isin:'US0846707026', venue:'Xetra',     tipo:'Acción', qty:2,  coste:823.00  },
-  { ibkr:'UNP',  yahoo:'UNP.DE',  alt:'UNP.F',   name:'Union Pacific Corp',         isin:'US9078181081', venue:'Xetra',     tipo:'Acción', qty:4,  coste:1002.60 },
-  { ibkr:'MWOW', yahoo:'MWOW.DE', alt:'',         name:'Amundi Rusl 1000 G UCITS ETF',isin:'IE0005E8B9S4',venue:'Xetra',     tipo:'ETF',    qty:2,  coste:1003.60 },
   { ibkr:'UU2',  yahoo:'UU2.DE',  alt:'UU2.F',   name:'BlackRock Inc',              isin:'US09290D1019', venue:'Xetra',     tipo:'Acción', qty:1,  coste:911.60  },
-  { ibkr:'VL9',  yahoo:'VL9.F',   alt:'',         name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.68   },
-  { ibkr:'MHL',  yahoo:'MHL.F',   alt:'MHL.DE',  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.02  },
+  { ibkr:'UNP',  yahoo:'UNP.DE',  alt:'UNP.F',   name:'Union Pacific Corp',         isin:'US9078181081', venue:'Xetra',     tipo:'Acción', qty:4,  coste:1002.60 },
+  { ibkr:'VL9',  yahoo:'VL9.F',   alt:'',         name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.684916 },
+  { ibkr:'MHL',  yahoo:'MHL.F',   alt:'MHL.DE',  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.015084 },
+  { ibkr:'MWOW', yahoo:'MWOW.DE', alt:'',         name:'Amundi Rusl 1000 G UCITS ETF',isin:'IE0005E8B9S4',venue:'Xetra',     tipo:'ETF',    qty:3,  coste:1557.50 },
   { ibkr:'E6Z',  yahoo:'E6Z.DE',  alt:'E6Z.F',   name:'AECOM',                      isin:'US00766T1007', venue:'Xetra',     tipo:'Acción', qty:13, coste:1069.00 },
-  { ibkr:'DSOL', yahoo:'SOLW.PA', alt:'',        name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Xetra',     tipo:'ETN',    qty:55, coste:1057.57 },
+  { ibkr:'DSOL', yahoo:'SOLW.MI', alt:'SOLW.PA', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Milán',     tipo:'ETN',    qty:55, coste:1057.57 },
 ];
 
-// Lo de arriba es la foto del extracto del 27/07/2026. Si editas las
-// posiciones en la app, mandan las guardadas en este navegador.
+// Lo de arriba es la foto del Informe de actividad de IBKR del 06/11/2026
+// (base de coste total 10.045,27 €). Si editas las posiciones en la app,
+// mandan las guardadas en este navegador, pero solo si son posteriores a
+// FECHA_BASE: así, al publicar un extracto nuevo, ningún navegador se queda
+// con cifras viejas guardadas.
+const FECHA_BASE = '2026-11-08T10:22:19Z';
 const CLAVE_POS = 'panel_inversion_posiciones_v1';
 let POSICIONES = POSICIONES_BASE.map(p => ({ ...p }));
 let posEditadas = null;
@@ -1294,6 +1302,9 @@ const estadoCartera = {};   // símbolo IBKR -> { price, currency, prevClose, ti
 // misma zona horaria que Madrid, así que basta comparar el día natural.
 const _fechaES = new Intl.DateTimeFormat('es-ES', { timeZone:'Europe/Madrid', day:'2-digit', month:'2-digit' });
 const _horaES  = new Intl.DateTimeFormat('es-ES', { timeZone:'Europe/Madrid', hour:'2-digit', minute:'2-digit' });
+// Como IBKR: el valor de cada línea se redondea a céntimos antes de sumar.
+// Si no, 55 × 11,487 = 631,785 descuadra el total en un céntimo.
+const aCent = x => Math.round((x + Number.EPSILON) * 100) / 100;
 function esDeHoy(ts) {
   return !!ts && _fechaES.format(new Date(ts)) === _fechaES.format(new Date());
 }
@@ -1380,14 +1391,24 @@ async function pedirCotizacion(simbolo) {
   return null;
 }
 
-// Las líneas alemanas de valores estadounidenses son finas: hay mañanas en que
-// Xetra no cruza ni una operación mientras Fráncfort sí. Se piden las dos y se
-// queda la del print más reciente, que es la que más se acerca al broker.
+// Manda la línea con la que valora IBKR (la primera): su cierre es el del
+// extracto. Antes se cogía el print más tardío y, como Fráncfort cotiza hasta
+// las 22:00, por la noche y en fin de semana la web enseñaba el último cruce
+// de Fráncfort y no el cierre de Xetra que usa el broker (PKA, BRYN, UNP).
+// El respaldo solo entra cuando la línea principal no ha cruzado en la última
+// sesión con actividad (mañanas en que Xetra aún no ha negociado) o no responde.
+const _diaES = new Intl.DateTimeFormat('es-ES', { timeZone:'Europe/Madrid', year:'numeric', month:'2-digit', day:'2-digit' });
+const diaDe = ts => ts ? _diaES.format(new Date(ts)) : '';
 async function fetchQuoteYahoo(simbolos) {
-  const respuestas = (await Promise.all(simbolos.filter(Boolean).map(pedirCotizacion))).filter(Boolean);
+  const lista = simbolos.filter(Boolean);
+  const todas = await Promise.all(lista.map(pedirCotizacion));
+  const principal = todas[0];
+  const respuestas = todas.filter(Boolean);
   if (!respuestas.length) return null;
   respuestas.sort((a, b) => (b.time || 0) - (a.time || 0));
-  return respuestas[0];
+  const masReciente = respuestas[0];
+  if (principal && diaDe(principal.time) === diaDe(masReciente.time)) return principal;
+  return masReciente;
 }
 
 function renderFilasValores() {
@@ -1395,7 +1416,7 @@ function renderFilasValores() {
     const s = estadoCartera[p.ibkr] || {};
     const hay = typeof s.price === 'number';
     const medio = p.coste / p.qty;                    // = "Precio medio" de IBKR
-    const valor = hay ? s.price * p.qty : null;       // = "Valor de mercado"
+    const valor = hay ? aCent(s.price * p.qty) : null; // = "Valor de mercado" (IBKR redondea cada línea a céntimos)
     const noReal = hay ? valor - p.coste : null;      // = "PyG no realizadas"
     const noRealPct = hay ? (noReal / p.coste) * 100 : null;
 
@@ -1450,7 +1471,7 @@ function renderTotalesValores() {
   POSICIONES.forEach(p => {
     const s = estadoCartera[p.ibkr] || {};
     if (typeof s.price === 'number') {
-      valor += s.price * p.qty; hayAlgo = true; conPrecio++;
+      valor += aCent(s.price * p.qty); hayAlgo = true; conPrecio++;
       if (esDeHoy(s.time) && !s.cached && typeof s.prevClose === 'number' && s.prevClose > 0) {
         dia += (s.price - s.prevClose) * p.qty;
         valorPrev += s.prevClose * p.qty;
@@ -1534,12 +1555,12 @@ async function cargarCartera() {
 
   $("notas-valores").innerHTML = PROXY_YAHOO
     ? `<span>🎯 <b>Perímetro:</b> solo posiciones. Compara con la suma de la columna "Valor de mercado" de IBKR, no con el valor de la cuenta: ese incluye el efectivo y los dividendos pendientes.</span>
-       <span>🧾 <b>Base de coste y precio medio</b> salen de tu extracto de IBKR, con la comisión de compra ya dentro. MHL y VL9 reparten la base original de S&P Global tras la escisión de Mobility Global: 864,02 + 45,68 = 909,70 €.</span>
+       <span>🧾 <b>Base de coste y precio medio</b> salen de tu extracto de IBKR, con la comisión de compra ya dentro. Cifras del Informe de actividad del 06/11/2026. MHL y VL9 reparten la base original de S&P Global tras la escisión de Mobility Global: 864,02 + 45,68 = 909,70 €.</span>
        <span>🟢 <b>Punto verde:</b> ha cruzado hoy · <b style="color:#B4530A">ámbar</b>: el último precio es de una sesión anterior, mercado cerrado o sin respuesta · <b style="color:#C31933">rojo</b>: sin dato. Bajo cada precio va la hora del cruce.</span>
        <span>🕰️ <b>"Sin cruce hoy" no es un fallo.</b> Las líneas alemanas de valores estadounidenses son finas y hay sesiones en que PKA, UNP o E6Z no negocian en toda la mañana. IBKR sí les pone precio porque su feed usa la horquilla de compra-venta; aquí solo se muestran operaciones reales, así que esas filas se quedan quietas hasta que alguien cruce. Al cierre vuelven a cuadrar.</span>
        <span>✎ <b>Editar posiciones</b> abre el panel donde pegas o tecleas lo que dice tu broker: cantidad y base de coste. Se guardan en este navegador, así que no hay que tocar el archivo cada vez que compres o vendas. «Copiar para el archivo» te da la línea de código si las quieres fijas.</span>
        <span>🔍 <b>Se comprueba que cada símbolo apunte a lo que crees.</b> Si el nombre que devuelve Yahoo no se parece al tuyo, la fila lo avisa en rojo: es la única forma de cazar un ticker que apunte a otro valor.</span>
-       <span>📉 Se consultan Xetra y Fráncfort y se toma el cruce más reciente. Precios de Yahoo con ~15 min de retardo: unos céntimos de diferencia con el broker son normales. Refresco automático cada ${REFRESCO_CARTERA_MIN} min.</span>`
+       <span>📉 Manda la línea con la que valora IBKR (Xetra; Fráncfort para MHL y VL9; Milán para DSOL), así el cierre coincide con el del extracto. La otra plaza solo entra si esa aún no ha cruzado. Precios de Yahoo con ~15 min de retardo: unos céntimos de diferencia con el broker son normales. Refresco automático cada ${REFRESCO_CARTERA_MIN} min.</span>`
     : `<span class="warn">⚠ <b>Falta el proxy.</b> Pega la URL de tu Cloudflare Worker en <code>PROXY_YAHOO</code>, terminada en <code>?url=</code>.</span>`;
 }
 
@@ -1972,6 +1993,11 @@ function aNumero(t) {
 function cargarPosicionesGuardadas() {
   try {
     const g = JSON.parse(localStorage.getItem(CLAVE_POS));
+    // Lo guardado antes del último extracto publicado se descarta.
+    if (g && (!g.fecha || g.fecha < FECHA_BASE)) {
+      localStorage.removeItem(CLAVE_POS);
+      return;
+    }
     if (g && Array.isArray(g.posiciones) && g.posiciones.length) {
       POSICIONES = g.posiciones.map(x => ({ ...x }));
       posEditadas = g.fecha || null;
