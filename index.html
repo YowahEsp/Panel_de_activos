@@ -782,8 +782,13 @@ const FONDOS = [
      MWOW y VL9 van sin respaldo: Yahoo no tiene MWOW.F ni VL9.DE y cada
      intento era un 404 en cada refresco. Si algún día aparecen, basta con
      volver a escribirlos ahí.
-     DSOL: IBKR lo cotiza en Borsa Italiana (BVME.ETF), así que va primero la
-     línea de Milán y París queda de respaldo.
+     MHL: IBKR lo tiene en Fráncfort, pero su cierre del extracto (421,50 el
+     06/11) es el de Xetra; Fráncfort había cruzado a 418,50 a las 12:22.
+     Por eso va primero MHL.DE.
+     DSOL: IBKR lo valora con un cierre de proveedor externo (11,487 el 06/11)
+     que no coincide con ninguna bolsa pública: Milán cerró a 11,452 y París
+     a 11,45. Yahoo no tiene Milán ni Xetra, así que se usa París y esta línea
+     puede diferir unos céntimos por título del extracto.
    Orden: el mismo de IBKR (PyG no realizadas, de mayor a menor).             */
 const POSICIONES_BASE = [
   { ibkr:'PKA',  yahoo:'PKA.DE',  alt:'PKA.F',   name:'Packaging Corp of America',  isin:'US6951561090', venue:'Xetra',     tipo:'Acción', qty:6,  coste:1010.10 },
@@ -793,10 +798,10 @@ const POSICIONES_BASE = [
   { ibkr:'UU2',  yahoo:'UU2.DE',  alt:'UU2.F',   name:'BlackRock Inc',              isin:'US09290D1019', venue:'Xetra',     tipo:'Acción', qty:1,  coste:911.60  },
   { ibkr:'UNP',  yahoo:'UNP.DE',  alt:'UNP.F',   name:'Union Pacific Corp',         isin:'US9078181081', venue:'Xetra',     tipo:'Acción', qty:4,  coste:1002.60 },
   { ibkr:'VL9',  yahoo:'VL9.F',   alt:'',         name:'Mobility Global Inc',        isin:'US60744M1062', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:45.684916 },
-  { ibkr:'MHL',  yahoo:'MHL.F',   alt:'MHL.DE',  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.015084 },
+  { ibkr:'MHL',  yahoo:'MHL.DE',  alt:'MHL.F' ,  name:'S&P Global Inc',             isin:'US78409V1044', venue:'Frankfurt', tipo:'Acción', qty:2,  coste:864.015084 },
   { ibkr:'MWOW', yahoo:'MWOW.DE', alt:'',         name:'Amundi Rusl 1000 G UCITS ETF',isin:'IE0005E8B9S4',venue:'Xetra',     tipo:'ETF',    qty:3,  coste:1557.50 },
   { ibkr:'E6Z',  yahoo:'E6Z.DE',  alt:'E6Z.F',   name:'AECOM',                      isin:'US00766T1007', venue:'Xetra',     tipo:'Acción', qty:13, coste:1069.00 },
-  { ibkr:'DSOL', yahoo:'SOLW.MI', alt:'SOLW.PA', name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'Milán',     tipo:'ETN',    qty:55, coste:1057.57 },
+  { ibkr:'DSOL', yahoo:'SOLW.PA', alt:'',        name:'WisdomTree Physical Solana', isin:'GB00BNGJ9G01', venue:'París',      tipo:'ETN',    qty:55, coste:1057.57 },
 ];
 
 // Lo de arriba es la foto del Informe de actividad de IBKR del 06/11/2026
@@ -1560,7 +1565,7 @@ async function cargarCartera() {
        <span>🕰️ <b>"Sin cruce hoy" no es un fallo.</b> Las líneas alemanas de valores estadounidenses son finas y hay sesiones en que PKA, UNP o E6Z no negocian en toda la mañana. IBKR sí les pone precio porque su feed usa la horquilla de compra-venta; aquí solo se muestran operaciones reales, así que esas filas se quedan quietas hasta que alguien cruce. Al cierre vuelven a cuadrar.</span>
        <span>✎ <b>Editar posiciones</b> abre el panel donde pegas o tecleas lo que dice tu broker: cantidad y base de coste. Se guardan en este navegador, así que no hay que tocar el archivo cada vez que compres o vendas. «Copiar para el archivo» te da la línea de código si las quieres fijas.</span>
        <span>🔍 <b>Se comprueba que cada símbolo apunte a lo que crees.</b> Si el nombre que devuelve Yahoo no se parece al tuyo, la fila lo avisa en rojo: es la única forma de cazar un ticker que apunte a otro valor.</span>
-       <span>📉 Manda la línea con la que valora IBKR (Xetra; Fráncfort para MHL y VL9; Milán para DSOL), así el cierre coincide con el del extracto. La otra plaza solo entra si esa aún no ha cruzado. Precios de Yahoo con ~15 min de retardo: unos céntimos de diferencia con el broker son normales. Refresco automático cada ${REFRESCO_CARTERA_MIN} min.</span>`
+       <span>📉 Manda la línea cuyo cierre usa IBKR (Xetra; Fráncfort para VL9), así el precio coincide con el del extracto. La otra plaza solo entra si esa aún no ha cruzado. DSOL va con París: IBKR lo valora con un precio de proveedor que no publica ninguna bolsa, y puede diferir unos céntimos por título. Precios de Yahoo con ~15 min de retardo: unos céntimos de diferencia con el broker son normales. Refresco automático cada ${REFRESCO_CARTERA_MIN} min.</span>`
     : `<span class="warn">⚠ <b>Falta el proxy.</b> Pega la URL de tu Cloudflare Worker en <code>PROXY_YAHOO</code>, terminada en <code>?url=</code>.</span>`;
 }
 
